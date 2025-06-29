@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,7 @@ import {
   Modal,
   Alert,
 } from 'react-native';
-import { Car, Plus, CreditCard as Edit, Trash2, Fuel, DollarSign, Star, Save, Globe } from 'lucide-react-native';
-import { useAuth } from '@/contexts/AuthContext';
-import { firebaseService, CarProfile } from '@/services/firebaseService';
+import { Car, Plus, Edit, Trash2, Fuel, DollarSign, Star, Save, Globe } from 'lucide-react-native';
 
 interface Currency {
   code: string;
@@ -19,13 +17,43 @@ interface Currency {
   name: string;
 }
 
+interface CarProfile {
+  id: string;
+  name: string;
+  make: string;
+  model: string;
+  year: string;
+  fuelEfficiency: number;
+  fuelType: 'Regular' | 'Premium' | 'Diesel';
+  isDefault: boolean;
+}
+
 export default function CarsScreen() {
-  const { user, userProfile, updateProfile } = useAuth();
-  const [cars, setCars] = useState<CarProfile[]>([]);
+  const [cars, setCars] = useState<CarProfile[]>([
+    {
+      id: '1',
+      name: 'Daily Driver',
+      make: 'Toyota',
+      model: 'Camry',
+      year: '2022',
+      fuelEfficiency: 12.5,
+      fuelType: 'Regular',
+      isDefault: true,
+    },
+    {
+      id: '2',
+      name: 'Weekend Car',
+      make: 'BMW',
+      model: 'X3',
+      year: '2021',
+      fuelEfficiency: 10.2,
+      fuelType: 'Premium',
+      isDefault: false,
+    }
+  ]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [editingCar, setEditingCar] = useState<CarProfile | null>(null);
-  const [loading, setLoading] = useState(true);
   const [newCar, setNewCar] = useState({
     name: '',
     make: '',
@@ -50,7 +78,7 @@ export default function CarsScreen() {
     { code: 'IDR', symbol: 'Rp', name: 'Indonesian Rupiah' },
   ];
 
-  const selectedCurrency = userProfile?.currency || currencies[0];
+  const [selectedCurrency, setSelectedCurrency] = useState(currencies[0]);
 
   const getFuelPrices = () => {
     const basePrices = {
@@ -59,7 +87,6 @@ export default function CarsScreen() {
       Diesel: 1.52,
     };
 
-    // Adjust prices based on currency
     const multiplier = selectedCurrency.code === 'MYR' ? 1.4 : 
                      selectedCurrency.code === 'EUR' ? 1.1 : 1;
 
@@ -72,24 +99,6 @@ export default function CarsScreen() {
 
   const fuelPrices = getFuelPrices();
 
-  useEffect(() => {
-    loadUserCars();
-  }, [user]);
-
-  const loadUserCars = async () => {
-    if (!user) return;
-    
-    try {
-      const userCars = await firebaseService.getUserCars(user.uid);
-      setCars(userCars);
-    } catch (error) {
-      console.error('Error loading cars:', error);
-      Alert.alert('Error', 'Failed to load your cars');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const resetForm = () => {
     setNewCar({
       name: '',
@@ -101,52 +110,41 @@ export default function CarsScreen() {
     });
   };
 
-  const handleAddCar = async () => {
-    if (!user || !newCar.name || !newCar.make || !newCar.model || !newCar.year || !newCar.fuelEfficiency) {
+  const handleAddCar = () => {
+    if (!newCar.name || !newCar.make || !newCar.model || !newCar.year || !newCar.fuelEfficiency) {
       Alert.alert('Missing Information', 'Please fill in all fields.');
       return;
     }
 
-    try {
-      const carData = {
-        userId: user.uid,
-        ...newCar,
-        fuelEfficiency: parseFloat(newCar.fuelEfficiency),
-        isDefault: cars.length === 0,
-      };
+    const carData: CarProfile = {
+      id: Date.now().toString(),
+      ...newCar,
+      fuelEfficiency: parseFloat(newCar.fuelEfficiency),
+      isDefault: cars.length === 0,
+    };
 
-      await firebaseService.addCarProfile(carData);
-      await loadUserCars();
-      resetForm();
-      setShowAddModal(false);
-      Alert.alert('Success', 'Car added successfully!');
-    } catch (error) {
-      console.error('Error adding car:', error);
-      Alert.alert('Error', 'Failed to add car');
-    }
+    setCars(prev => [...prev, carData]);
+    resetForm();
+    setShowAddModal(false);
+    Alert.alert('Success', 'Car added successfully!');
   };
 
-  const handleEditCar = async () => {
+  const handleEditCar = () => {
     if (!editingCar || !newCar.name || !newCar.make || !newCar.model || !newCar.year || !newCar.fuelEfficiency) {
       Alert.alert('Missing Information', 'Please fill in all fields.');
       return;
     }
 
-    try {
-      await firebaseService.updateCarProfile(editingCar.id, {
-        ...newCar,
-        fuelEfficiency: parseFloat(newCar.fuelEfficiency),
-      });
-      
-      await loadUserCars();
-      setEditingCar(null);
-      resetForm();
-      setShowAddModal(false);
-      Alert.alert('Success', 'Car updated successfully!');
-    } catch (error) {
-      console.error('Error updating car:', error);
-      Alert.alert('Error', 'Failed to update car');
-    }
+    setCars(prev => prev.map(car => 
+      car.id === editingCar.id 
+        ? { ...car, ...newCar, fuelEfficiency: parseFloat(newCar.fuelEfficiency) }
+        : car
+    ));
+    
+    setEditingCar(null);
+    resetForm();
+    setShowAddModal(false);
+    Alert.alert('Success', 'Car updated successfully!');
   };
 
   const handleDeleteCar = (carId: string) => {
@@ -158,43 +156,27 @@ export default function CarsScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await firebaseService.deleteCarProfile(carId);
-              await loadUserCars();
-              Alert.alert('Success', 'Car deleted successfully!');
-            } catch (error) {
-              console.error('Error deleting car:', error);
-              Alert.alert('Error', 'Failed to delete car');
-            }
+          onPress: () => {
+            setCars(prev => prev.filter(car => car.id !== carId));
+            Alert.alert('Success', 'Car deleted successfully!');
           },
         },
       ]
     );
   };
 
-  const handleSetDefault = async (carId: string) => {
-    if (!user) return;
-    
-    try {
-      await firebaseService.setDefaultCar(user.uid, carId);
-      await loadUserCars();
-      Alert.alert('Success', 'Default car updated!');
-    } catch (error) {
-      console.error('Error setting default car:', error);
-      Alert.alert('Error', 'Failed to set default car');
-    }
+  const handleSetDefault = (carId: string) => {
+    setCars(prev => prev.map(car => ({
+      ...car,
+      isDefault: car.id === carId
+    })));
+    Alert.alert('Success', 'Default car updated!');
   };
 
-  const handleCurrencySelect = async (currency: Currency) => {
-    try {
-      await updateProfile({ currency });
-      setShowCurrencyModal(false);
-      Alert.alert('Success', 'Currency updated successfully!');
-    } catch (error) {
-      console.error('Error updating currency:', error);
-      Alert.alert('Error', 'Failed to update currency');
-    }
+  const handleCurrencySelect = (currency: Currency) => {
+    setSelectedCurrency(currency);
+    setShowCurrencyModal(false);
+    Alert.alert('Success', 'Currency updated successfully!');
   };
 
   const openEditModal = (car: CarProfile) => {
@@ -215,14 +197,6 @@ export default function CarsScreen() {
     const cost = fuelNeeded * fuelPrices[fuelType as keyof typeof fuelPrices];
     return cost.toFixed(2);
   };
-
-  if (loading) {
-    return (
-      <View style={[styles.container, styles.centered]}>
-        <Text>Loading your cars...</Text>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -480,10 +454,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',

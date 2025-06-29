@@ -10,11 +10,37 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { Search, Navigation, Cast as Gas, Clock, DollarSign, Route, MapPin, Phone, Zap, MessageCircle, TriangleAlert as AlertTriangle } from 'lucide-react-native';
+import { Search, Navigation, Fuel, Clock, DollarSign, Route, MapPin, Phone, Zap, MessageCircle, TriangleAlert as AlertTriangle } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import GoogleMap from '@/components/GoogleMap';
-import { googleMapsService, RouteResult, GasStation, EVChargingStation } from '@/services/googleMapsService';
-import { analyticsService } from '@/services/analyticsService';
+
+interface RouteResult {
+  distance: string;
+  duration: string;
+  fuelCost: number;
+  tollCost: number;
+  totalCost: number;
+}
+
+interface GasStation {
+  id: string;
+  name: string;
+  address: string;
+  distance: number;
+  price: number;
+}
+
+interface EVChargingStation {
+  id: string;
+  name: string;
+  address: string;
+  distance: number;
+  connectorType: string;
+  powerLevel: number;
+  pricePerKwh: number;
+  available: number;
+  total: number;
+}
 
 export default function MapScreen() {
   const [searchFrom, setSearchFrom] = useState('');
@@ -69,13 +95,10 @@ export default function MapScreen() {
   useEffect(() => {
     getLocationPermission();
     loadChatMessages();
-    // Track screen view
-    analyticsService.trackScreenView('Map');
   }, []);
 
   const getLocationPermission = async () => {
     if (Platform.OS === 'web') {
-      // Handle web location differently
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
@@ -93,14 +116,9 @@ export default function MapScreen() {
             };
             setLocation(mockLocation);
             setSearchFrom('Current Location');
-            
-            analyticsService.trackEvent('location_permission_granted', {
-              method: 'web_geolocation',
-            });
           },
           (error) => {
             console.error('Error getting location:', error);
-            // Set default location (San Francisco)
             const defaultLocation = {
               coords: {
                 latitude: 37.7749,
@@ -115,11 +133,6 @@ export default function MapScreen() {
             };
             setLocation(defaultLocation);
             setSearchFrom('San Francisco, CA');
-            
-            analyticsService.trackEvent('location_permission_denied', {
-              method: 'web_geolocation',
-              error: error.message,
-            });
           }
         );
       }
@@ -129,54 +142,51 @@ export default function MapScreen() {
     let { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission denied', 'Location permission is required for navigation.');
-      analyticsService.trackEvent('location_permission_denied', {
-        method: 'expo_location',
-      });
       return;
     }
 
     let location = await Location.getCurrentPositionAsync({});
     setLocation(location);
     setSearchFrom('Current Location');
-    
-    analyticsService.trackEvent('location_permission_granted', {
-      method: 'expo_location',
-    });
   };
 
   const handleSearch = async () => {
     if (searchFrom && searchTo) {
       try {
-        analyticsService.trackEvent('route_search_started', {
-          origin: searchFrom,
-          destination: searchTo,
-        });
-
-        // Calculate routes using Google Maps service
-        const calculatedRoutes = await googleMapsService.calculateRoute(
-          searchFrom,
-          searchTo,
-          12.5, // Default fuel efficiency - should come from user's selected car
-          1.45  // Default fuel price - should come from user's settings
-        );
+        // Mock route calculation
+        const mockRoutes: RouteResult[] = [
+          {
+            distance: '45.2 km',
+            duration: '38 min',
+            fuelCost: 5.85,
+            tollCost: 2.50,
+            totalCost: 8.35,
+          },
+          {
+            distance: '52.1 km',
+            duration: '51 min',
+            fuelCost: 6.75,
+            tollCost: 0.00,
+            totalCost: 6.75,
+          },
+          {
+            distance: '48.7 km',
+            duration: '46 min',
+            fuelCost: 6.30,
+            tollCost: 0.00,
+            totalCost: 6.30,
+          }
+        ];
         
-        setRoutes(calculatedRoutes);
+        setRoutes(mockRoutes);
         setMapRoutes([{
           origin: searchFrom,
           destination: searchTo
         }]);
         setShowRoutes(true);
-        
-        analyticsService.trackRouteCalculation(searchFrom, searchTo, calculatedRoutes.length);
       } catch (error) {
         console.error('Error calculating routes:', error);
         Alert.alert('Error', 'Failed to calculate routes. Please try again.');
-        
-        analyticsService.trackEvent('route_search_failed', {
-          origin: searchFrom,
-          destination: searchTo,
-          error: (error as Error).message,
-        });
       }
     } else {
       Alert.alert('Missing Information', 'Please enter both starting point and destination.');
@@ -186,29 +196,34 @@ export default function MapScreen() {
   const handleFindGasStations = async () => {
     if (location) {
       try {
-        analyticsService.trackEvent('gas_station_search_started', {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
-
-        const stations = await googleMapsService.findNearbyGasStations({
-          lat: location.coords.latitude,
-          lng: location.coords.longitude
-        });
-        setGasStations(stations);
+        const mockStations: GasStation[] = [
+          {
+            id: '1',
+            name: 'Shell Station',
+            address: '123 Main St',
+            distance: 0.8,
+            price: 1.45,
+          },
+          {
+            id: '2',
+            name: 'BP Station',
+            address: '456 Oak Ave',
+            distance: 1.2,
+            price: 1.42,
+          },
+          {
+            id: '3',
+            name: 'Chevron',
+            address: '789 Pine St',
+            distance: 2.1,
+            price: 1.48,
+          }
+        ];
+        setGasStations(mockStations);
         setShowGasStations(true);
-        
-        analyticsService.trackGasStationSearch(
-          `${location.coords.latitude},${location.coords.longitude}`,
-          stations.length
-        );
       } catch (error) {
         console.error('Error finding gas stations:', error);
         Alert.alert('Error', 'Failed to find gas stations. Please try again.');
-        
-        analyticsService.trackEvent('gas_station_search_failed', {
-          error: (error as Error).message,
-        });
       }
     } else {
       Alert.alert('Location Required', 'Please enable location services to find nearby gas stations.');
@@ -218,29 +233,35 @@ export default function MapScreen() {
   const handleFindEVStations = async () => {
     if (location) {
       try {
-        analyticsService.trackEvent('ev_station_search_started', {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
-
-        const stations = await googleMapsService.findNearbyEVStations({
-          lat: location.coords.latitude,
-          lng: location.coords.longitude
-        });
-        setEVStations(stations);
+        const mockStations: EVChargingStation[] = [
+          {
+            id: '1',
+            name: 'Tesla Supercharger',
+            address: '100 Electric Ave',
+            distance: 1.5,
+            connectorType: 'Tesla Supercharger',
+            powerLevel: 250,
+            pricePerKwh: 0.28,
+            available: 3,
+            total: 8,
+          },
+          {
+            id: '2',
+            name: 'ChargePoint Station',
+            address: '200 Green St',
+            distance: 2.3,
+            connectorType: 'CCS',
+            powerLevel: 150,
+            pricePerKwh: 0.32,
+            available: 1,
+            total: 4,
+          }
+        ];
+        setEVStations(mockStations);
         setShowEVStations(true);
-        
-        analyticsService.trackEvent('ev_station_search_completed', {
-          location: `${location.coords.latitude},${location.coords.longitude}`,
-          station_count: stations.length,
-        });
       } catch (error) {
         console.error('Error finding EV stations:', error);
         Alert.alert('Error', 'Failed to find EV charging stations. Please try again.');
-        
-        analyticsService.trackEvent('ev_station_search_failed', {
-          error: (error as Error).message,
-        });
       }
     } else {
       Alert.alert('Location Required', 'Please enable location services to find nearby EV charging stations.');
@@ -254,14 +275,6 @@ export default function MapScreen() {
     }
 
     try {
-      // In a real app, this would submit to your backend
-      analyticsService.trackEvent('traffic_report_submitted', {
-        report_type: trafficReportType,
-        location: trafficLocation,
-        description_length: trafficDescription.length,
-      });
-
-      // Reset form
       setTrafficReportType('');
       setTrafficDescription('');
       setTrafficLocation('');
@@ -288,12 +301,7 @@ export default function MapScreen() {
     setChatMessages(prev => [...prev, message]);
     setNewMessage('');
 
-    analyticsService.trackEvent('chat_message_sent', {
-      message_length: message.message.length,
-      has_location: !!message.location,
-    });
-
-    // Simulate receiving a response (in a real app, this would be real-time)
+    // Simulate receiving a response
     setTimeout(() => {
       const responses = [
         'Thanks for the update! Traffic is moving slowly here too.',
@@ -315,37 +323,25 @@ export default function MapScreen() {
   };
 
   const loadChatMessages = () => {
-    // Mock initial messages
     const mockMessages = [
       {
         id: '1',
         user: 'Traffic Alert',
         message: 'Heavy traffic reported on I-95 North. Consider alternate routes.',
-        timestamp: new Date(Date.now() - 300000), // 5 minutes ago
+        timestamp: new Date(Date.now() - 300000),
       },
       {
         id: '2',
         user: 'Local Driver',
         message: 'Construction on Main St causing delays. Use Oak Ave instead.',
-        timestamp: new Date(Date.now() - 180000), // 3 minutes ago
+        timestamp: new Date(Date.now() - 180000),
       },
     ];
     setChatMessages(mockMessages);
   };
 
   const handleEmergencyContact = (contact: typeof emergencyContacts[0]) => {
-    analyticsService.trackEmergencyContact(contact.name);
-    // In a real app, this would initiate a phone call
     Alert.alert('Emergency Contact', `Calling ${contact.name} at ${contact.number}`);
-  };
-
-  const getTrafficColor = (traffic: string) => {
-    switch (traffic) {
-      case 'light': return '#059669';
-      case 'moderate': return '#EA580C';
-      case 'heavy': return '#DC2626';
-      default: return '#6B7280';
-    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -374,17 +370,13 @@ export default function MapScreen() {
           routes={mapRoutes}
           onMapReady={(map) => {
             console.log('Google Map is ready');
-            analyticsService.trackEvent('map_loaded');
           }}
         />
         
         {/* Floating Chat Button */}
         <TouchableOpacity
           style={styles.chatButton}
-          onPress={() => {
-            setShowChat(true);
-            analyticsService.trackEvent('chat_opened');
-          }}>
+          onPress={() => setShowChat(true)}>
           <MessageCircle size={24} color="#FFFFFF" />
           {chatMessages.length > 2 && (
             <View style={styles.chatBadge}>
@@ -425,7 +417,7 @@ export default function MapScreen() {
         <TouchableOpacity
           style={styles.actionButton}
           onPress={handleFindGasStations}>
-          <Gas size={20} color="#2563EB" />
+          <Fuel size={20} color="#2563EB" />
           <Text style={styles.actionText}>Gas</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -436,19 +428,13 @@ export default function MapScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => {
-            setShowTrafficReport(true);
-            analyticsService.trackEvent('traffic_report_modal_opened');
-          }}>
+          onPress={() => setShowTrafficReport(true)}>
           <AlertTriangle size={20} color="#F59E0B" />
           <Text style={styles.actionText}>Report</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => {
-            setShowEmergency(true);
-            analyticsService.trackEvent('emergency_modal_opened');
-          }}>
+          onPress={() => setShowEmergency(true)}>
           <Phone size={20} color="#DC2626" />
           <Text style={styles.actionText}>Emergency</Text>
         </TouchableOpacity>
@@ -465,17 +451,7 @@ export default function MapScreen() {
           </View>
           <ScrollView style={styles.modalContent}>
             {routes.map((route, index) => (
-              <TouchableOpacity 
-                key={index} 
-                style={styles.routeCard}
-                onPress={() => {
-                  analyticsService.trackEvent('route_selected', {
-                    route_index: index,
-                    distance: route.distance,
-                    duration: route.duration,
-                    total_cost: route.totalCost,
-                  });
-                }}>
+              <TouchableOpacity key={index} style={styles.routeCard}>
                 <View style={styles.routeHeader}>
                   <Text style={styles.routeName}>
                     {index === 0 ? 'Fastest Route' : index === 1 ? 'Most Economical' : 'Alternative Route'}
@@ -522,18 +498,9 @@ export default function MapScreen() {
           </View>
           <ScrollView style={styles.modalContent}>
             {gasStations.map((station) => (
-              <TouchableOpacity 
-                key={station.id} 
-                style={styles.stationCard}
-                onPress={() => {
-                  analyticsService.trackEvent('gas_station_selected', {
-                    station_name: station.name,
-                    distance: station.distance,
-                    price: station.price,
-                  });
-                }}>
+              <TouchableOpacity key={station.id} style={styles.stationCard}>
                 <View style={styles.stationInfo}>
-                  <Gas size={24} color="#2563EB" />
+                  <Fuel size={24} color="#2563EB" />
                   <View style={styles.stationDetails}>
                     <Text style={styles.stationName}>{station.name}</Text>
                     <Text style={styles.stationDistance}>{station.distance.toFixed(1)} km away</Text>
@@ -558,17 +525,7 @@ export default function MapScreen() {
           </View>
           <ScrollView style={styles.modalContent}>
             {evStations.map((station) => (
-              <TouchableOpacity 
-                key={station.id} 
-                style={styles.stationCard}
-                onPress={() => {
-                  analyticsService.trackEvent('ev_station_selected', {
-                    station_name: station.name,
-                    distance: station.distance,
-                    connector_type: station.connectorType,
-                    power_level: station.powerLevel,
-                  });
-                }}>
+              <TouchableOpacity key={station.id} style={styles.stationCard}>
                 <View style={styles.stationInfo}>
                   <Zap size={24} color="#059669" />
                   <View style={styles.stationDetails}>

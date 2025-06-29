@@ -8,25 +8,65 @@ import {
   Switch,
   Alert,
 } from 'react-native';
-import { User, Settings, MapPin, Bell, Shield, CircleHelp as HelpCircle, Star, Phone, Navigation, Fuel, ChevronRight, LogOut, UserCheck } from 'lucide-react-native';
-import { useAuth } from '@/contexts/AuthContext';
-import { router } from 'expo-router';
+import { User, Settings, MapPin, Bell, Shield, CircleHelp as HelpCircle, Star, Phone, Navigation, Fuel, ChevronRight, LogOut } from 'lucide-react-native';
+
+interface UserProfile {
+  displayName: string;
+  email: string;
+  currency: {
+    code: string;
+    symbol: string;
+    name: string;
+  };
+  preferences: {
+    voiceNavigation: boolean;
+    autoReroute: boolean;
+    notifications: boolean;
+    locationSharing: boolean;
+  };
+  stats: {
+    tripsSaved: number;
+    fuelSaved: number;
+    reportsSubmitted: number;
+    communityRating: number;
+  };
+}
 
 export default function ProfileScreen() {
-  const { user, userProfile, updateProfile, signOut, isGuest } = useAuth();
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    displayName: 'John Doe',
+    email: 'john.doe@example.com',
+    currency: {
+      code: 'USD',
+      symbol: '$',
+      name: 'US Dollar'
+    },
+    preferences: {
+      voiceNavigation: true,
+      autoReroute: true,
+      notifications: true,
+      locationSharing: true
+    },
+    stats: {
+      tripsSaved: 42,
+      fuelSaved: 156,
+      reportsSubmitted: 8,
+      communityRating: 4.8
+    }
+  });
+
   const [updating, setUpdating] = useState(false);
 
   const handleToggleSetting = async (setting: string, value: boolean) => {
-    if (!userProfile) return;
-    
     setUpdating(true);
     try {
-      await updateProfile({
+      setUserProfile(prev => ({
+        ...prev,
         preferences: {
-          ...userProfile.preferences,
+          ...prev.preferences,
           [setting]: value
         }
-      });
+      }));
     } catch (error) {
       console.error('Error updating setting:', error);
       Alert.alert('Error', 'Failed to update setting');
@@ -37,28 +77,19 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      isGuest ? 'Exit Guest Mode' : 'Logout',
-      isGuest ? 'Are you sure you want to exit guest mode?' : 'Are you sure you want to logout?',
+      'Logout',
+      'Are you sure you want to logout?',
       [
         { text: 'Cancel', style: 'cancel' },
         { 
-          text: isGuest ? 'Exit' : 'Logout', 
+          text: 'Logout', 
           style: 'destructive', 
-          onPress: async () => {
-            try {
-              await signOut();
-            } catch (error) {
-              console.error('Error signing out:', error);
-              Alert.alert('Error', 'Failed to sign out');
-            }
+          onPress: () => {
+            Alert.alert('Logged out', 'You have been logged out successfully');
           }
         },
       ]
     );
-  };
-
-  const handleUpgradeAccount = () => {
-    router.push('/auth');
   };
 
   const MenuSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -109,14 +140,6 @@ export default function ProfileScreen() {
     );
   };
 
-  if (!userProfile) {
-    return (
-      <View style={[styles.container, styles.centered]}>
-        <Text>Loading profile...</Text>
-      </View>
-    );
-  }
-
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -126,30 +149,17 @@ export default function ProfileScreen() {
       {/* Profile Info */}
       <View style={styles.profileCard}>
         <View style={styles.profileInfo}>
-          <View style={[styles.avatar, isGuest && styles.guestAvatar]}>
-            {isGuest ? (
-              <UserCheck size={32} color="#FFFFFF" />
-            ) : (
-              <User size={32} color="#FFFFFF" />
-            )}
+          <View style={styles.avatar}>
+            <User size={32} color="#FFFFFF" />
           </View>
           <View>
             <Text style={styles.userName}>{userProfile.displayName}</Text>
             <Text style={styles.userEmail}>{userProfile.email}</Text>
-            {isGuest && (
-              <Text style={styles.guestBadge}>Guest Mode</Text>
-            )}
           </View>
         </View>
-        {isGuest ? (
-          <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgradeAccount}>
-            <Text style={styles.upgradeButtonText}>Create Account</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.editButton}>
-            <Text style={styles.editButtonText}>Edit Profile</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity style={styles.editButton}>
+          <Text style={styles.editButtonText}>Edit Profile</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Statistics */}
@@ -224,32 +234,30 @@ export default function ProfileScreen() {
         <MenuItem
           icon={Bell}
           title="Push Notifications"
-          subtitle={isGuest ? "Sign up to enable notifications" : "Traffic alerts and updates"}
+          subtitle="Traffic alerts and updates"
           showArrow={false}
-          disabled={isGuest}
           rightElement={
             <Switch
               value={userProfile.preferences.notifications}
               onValueChange={(value) => handleToggleSetting('notifications', value)}
               trackColor={{ false: '#E5E7EB', true: '#93C5FD' }}
               thumbColor={userProfile.preferences.notifications ? '#2563EB' : '#9CA3AF'}
-              disabled={updating || isGuest}
+              disabled={updating}
             />
           }
         />
         <MenuItem
           icon={MapPin}
           title="Location Sharing"
-          subtitle={isGuest ? "Sign up to enable location sharing" : "Help improve traffic data"}
+          subtitle="Help improve traffic data"
           showArrow={false}
-          disabled={isGuest}
           rightElement={
             <Switch
               value={userProfile.preferences.locationSharing}
               onValueChange={(value) => handleToggleSetting('locationSharing', value)}
               trackColor={{ false: '#E5E7EB', true: '#93C5FD' }}
               thumbColor={userProfile.preferences.locationSharing ? '#2563EB' : '#9CA3AF'}
-              disabled={updating || isGuest}
+              disabled={updating}
             />
           }
         />
@@ -293,9 +301,7 @@ export default function ProfileScreen() {
         />
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <LogOut size={20} color="#DC2626" />
-          <Text style={styles.logoutText}>
-            {isGuest ? 'Exit Guest Mode' : 'Logout'}
-          </Text>
+          <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </MenuSection>
 
@@ -311,10 +317,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   header: {
     padding: 16,
@@ -353,9 +355,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 16,
   },
-  guestAvatar: {
-    backgroundColor: '#6B7280',
-  },
   userName: {
     fontSize: 18,
     fontWeight: '600',
@@ -365,12 +364,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 2,
-  },
-  guestBadge: {
-    fontSize: 12,
-    color: '#F59E0B',
-    fontWeight: '600',
-    marginTop: 4,
   },
   editButton: {
     backgroundColor: '#F3F4F6',
@@ -383,18 +376,6 @@ const styles = StyleSheet.create({
     color: '#2563EB',
     fontSize: 14,
     fontWeight: '500',
-  },
-  upgradeButton: {
-    backgroundColor: '#2563EB',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  upgradeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
   },
   statsCard: {
     backgroundColor: '#FFFFFF',
@@ -450,7 +431,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1F2937',
     padding: 16,
-    paddingBottom: 8,
+    paddingBottom:  8,
   },
   menuItem: {
     flexDirection: 'row',

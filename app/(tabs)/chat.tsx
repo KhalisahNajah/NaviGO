@@ -6,13 +6,9 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Alert,
   RefreshControl,
 } from 'react-native';
-import { MessageCircle, Send, MapPin, Clock, Users, TriangleAlert as AlertTriangle, Navigation } from 'lucide-react-native';
-import { useAuth } from '@/contexts/AuthContext';
-import { analyticsService } from '@/services/analyticsService';
-import * as Location from 'expo-location';
+import { MessageCircle, Send, MapPin, Clock, Users, TriangleAlert as AlertTriangle } from 'lucide-react-native';
 
 interface ChatMessage {
   id: string;
@@ -40,23 +36,20 @@ interface TrafficRoom {
   location: {
     lat: number;
     lng: number;
-    radius: number; // km
+    radius: number;
   };
 }
 
 export default function ChatScreen() {
-  const { user, userProfile } = useAuth();
   const [activeRoom, setActiveRoom] = useState<string | null>(null);
   const [rooms, setRooms] = useState<TrafficRoom[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     initializeChat();
-    analyticsService.trackScreenView('Chat');
   }, []);
 
   useEffect(() => {
@@ -67,7 +60,6 @@ export default function ChatScreen() {
 
   const initializeChat = async () => {
     try {
-      await getCurrentLocation();
       await loadNearbyRooms();
       setLoading(false);
     } catch (error) {
@@ -76,27 +68,14 @@ export default function ChatScreen() {
     }
   };
 
-  const getCurrentLocation = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const currentLocation = await Location.getCurrentPositionAsync({});
-        setLocation(currentLocation);
-      }
-    } catch (error) {
-      console.error('Error getting location:', error);
-    }
-  };
-
   const loadNearbyRooms = async () => {
-    // Mock data - in a real app, this would fetch from your backend
     const mockRooms: TrafficRoom[] = [
       {
         id: 'highway-101-north',
         name: 'Highway 101 North',
         description: 'Traffic updates for Highway 101 northbound',
         activeUsers: 23,
-        lastActivity: new Date(Date.now() - 120000), // 2 minutes ago
+        lastActivity: new Date(Date.now() - 120000),
         location: { lat: 37.7749, lng: -122.4194, radius: 10 }
       },
       {
@@ -104,7 +83,7 @@ export default function ChatScreen() {
         name: 'Downtown Traffic',
         description: 'City center traffic and parking updates',
         activeUsers: 45,
-        lastActivity: new Date(Date.now() - 60000), // 1 minute ago
+        lastActivity: new Date(Date.now() - 60000),
         location: { lat: 37.7849, lng: -122.4094, radius: 5 }
       },
       {
@@ -112,7 +91,7 @@ export default function ChatScreen() {
         name: 'Bay Bridge',
         description: 'Bridge traffic conditions and delays',
         activeUsers: 67,
-        lastActivity: new Date(Date.now() - 30000), // 30 seconds ago
+        lastActivity: new Date(Date.now() - 30000),
         location: { lat: 37.7949, lng: -122.3994, radius: 8 }
       },
       {
@@ -120,14 +99,13 @@ export default function ChatScreen() {
         name: 'Airport Route',
         description: 'Traffic to/from SFO Airport',
         activeUsers: 34,
-        lastActivity: new Date(Date.now() - 300000), // 5 minutes ago
+        lastActivity: new Date(Date.now() - 300000),
         location: { lat: 37.6213, lng: -122.3790, radius: 15 }
       }
     ];
 
     setRooms(mockRooms);
     
-    // Auto-join the most active nearby room
     if (mockRooms.length > 0) {
       const mostActive = mockRooms.reduce((prev, current) => 
         prev.activeUsers > current.activeUsers ? prev : current
@@ -137,14 +115,13 @@ export default function ChatScreen() {
   };
 
   const loadRoomMessages = async (roomId: string) => {
-    // Mock messages - in a real app, this would fetch from your backend
     const mockMessages: ChatMessage[] = [
       {
         id: '1',
         user: 'TrafficBot',
         userId: 'bot',
         message: 'Welcome to the traffic chat! Share updates to help fellow drivers.',
-        timestamp: new Date(Date.now() - 1800000), // 30 minutes ago
+        timestamp: new Date(Date.now() - 1800000),
         type: 'message',
       },
       {
@@ -152,7 +129,7 @@ export default function ChatScreen() {
         user: 'Sarah M.',
         userId: 'user1',
         message: 'Heavy traffic at Exit 42, accident in left lane. Expect 15-20 min delays.',
-        timestamp: new Date(Date.now() - 900000), // 15 minutes ago
+        timestamp: new Date(Date.now() - 900000),
         type: 'traffic_alert',
         urgency: 'high',
         location: {
@@ -165,7 +142,7 @@ export default function ChatScreen() {
         user: 'Mike R.',
         userId: 'user2',
         message: 'Thanks for the heads up! Taking the alternate route via Oak Street.',
-        timestamp: new Date(Date.now() - 840000), // 14 minutes ago
+        timestamp: new Date(Date.now() - 840000),
         type: 'message',
       },
       {
@@ -173,7 +150,7 @@ export default function ChatScreen() {
         user: 'Lisa K.',
         userId: 'user3',
         message: 'Construction crew just arrived at the scene. Should clear up soon.',
-        timestamp: new Date(Date.now() - 600000), // 10 minutes ago
+        timestamp: new Date(Date.now() - 600000),
         type: 'traffic_alert',
         urgency: 'medium',
         location: {
@@ -186,7 +163,7 @@ export default function ChatScreen() {
         user: 'David L.',
         userId: 'user4',
         message: 'All clear now! Traffic flowing normally again.',
-        timestamp: new Date(Date.now() - 180000), // 3 minutes ago
+        timestamp: new Date(Date.now() - 180000),
         type: 'traffic_alert',
         urgency: 'low',
       }
@@ -196,70 +173,35 @@ export default function ChatScreen() {
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !activeRoom || !user) return;
+    if (!newMessage.trim() || !activeRoom) return;
 
     const message: ChatMessage = {
       id: Date.now().toString(),
-      user: userProfile?.displayName || 'Anonymous',
-      userId: user.uid,
+      user: 'You',
+      userId: 'current_user',
       message: newMessage.trim(),
       timestamp: new Date(),
       type: 'message',
-      location: location ? {
-        address: 'Current Location',
-        coordinates: {
-          lat: location.coords.latitude,
-          lng: location.coords.longitude
-        }
-      } : undefined
     };
 
     setMessages(prev => [...prev, message]);
     setNewMessage('');
-
-    analyticsService.trackEvent('chat_message_sent', {
-      room_id: activeRoom,
-      message_length: message.message.length,
-      has_location: !!message.location,
-      message_type: message.type,
-    });
-
-    // In a real app, send to backend here
-    try {
-      // await chatService.sendMessage(activeRoom, message);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      Alert.alert('Error', 'Failed to send message');
-    }
   };
 
   const handleQuickAlert = (alertType: string, alertMessage: string) => {
-    if (!activeRoom || !user) return;
+    if (!activeRoom) return;
 
     const message: ChatMessage = {
       id: Date.now().toString(),
-      user: userProfile?.displayName || 'Anonymous',
-      userId: user.uid,
+      user: 'You',
+      userId: 'current_user',
       message: alertMessage,
       timestamp: new Date(),
       type: 'traffic_alert',
       urgency: 'high',
-      location: location ? {
-        address: 'Current Location',
-        coordinates: {
-          lat: location.coords.latitude,
-          lng: location.coords.longitude
-        }
-      } : undefined
     };
 
     setMessages(prev => [...prev, message]);
-
-    analyticsService.trackEvent('quick_alert_sent', {
-      room_id: activeRoom,
-      alert_type: alertType,
-      has_location: !!message.location,
-    });
   };
 
   const onRefresh = async () => {
@@ -296,7 +238,7 @@ export default function ChatScreen() {
         default: return styles.alertMedium;
       }
     }
-    return message.userId === user?.uid ? styles.messageOwn : styles.messageOther;
+    return message.userId === 'current_user' ? styles.messageOwn : styles.messageOther;
   };
 
   const getAlertIcon = (urgency?: string) => {
@@ -343,13 +285,7 @@ export default function ChatScreen() {
               styles.roomCard,
               activeRoom === room.id && styles.roomCardActive
             ]}
-            onPress={() => {
-              setActiveRoom(room.id);
-              analyticsService.trackEvent('chat_room_switched', {
-                room_id: room.id,
-                room_name: room.name,
-              });
-            }}>
+            onPress={() => setActiveRoom(room.id)}>
             <Text style={[
               styles.roomName,
               activeRoom === room.id && styles.roomNameActive

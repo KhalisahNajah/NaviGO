@@ -1,25 +1,7 @@
-import { useEffect } from 'react';
-import { Tabs, router } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { MapPin, Car, TriangleAlert as AlertTriangle, User, MessageCircle } from 'lucide-react-native';
-import { useAuth } from '@/contexts/AuthContext';
 
 export default function TabLayout() {
-  const { user, loading, isGuest } = useAuth();
-
-  useEffect(() => {
-    if (!loading && !user && !isGuest) {
-      router.replace('/auth');
-    }
-  }, [user, loading, isGuest]);
-
-  if (loading) {
-    return null; // Or a loading screen
-  }
-
-  if (!user && !isGuest) {
-    return null;
-  }
-
   return (
     <Tabs
       screenOptions={{

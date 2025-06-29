@@ -9,9 +9,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { TriangleAlert as AlertTriangle, Car, Construction, TreePine, Clock, MapPin, Send, Slice as Police, CloudRain } from 'lucide-react-native';
-import { useAuth } from '@/contexts/AuthContext';
-import { firebaseService, CommunityReport } from '@/services/firebaseService';
+import { TriangleAlert as AlertTriangle, Car, Construction, TreePine, Clock, MapPin, Send, Shield as Police, CloudRain } from 'lucide-react-native';
 
 interface ReportType {
   id: string;
@@ -21,8 +19,26 @@ interface ReportType {
   description: string;
 }
 
+interface CommunityReport {
+  id: string;
+  type: string;
+  description: string;
+  location: {
+    address: string;
+    coordinates: {
+      lat: number;
+      lng: number;
+    };
+  };
+  status: 'active' | 'resolved';
+  votes: {
+    helpful: number;
+    notHelpful: number;
+  };
+  createdAt: Date;
+}
+
 export default function ReportsScreen() {
-  const { user } = useAuth();
   const [reports, setReports] = useState<CommunityReport[]>([]);
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedReportType, setSelectedReportType] = useState<string>('');
@@ -91,20 +107,50 @@ export default function ReportsScreen() {
 
   useEffect(() => {
     loadReports();
-    
-    // Subscribe to real-time updates
-    const unsubscribe = firebaseService.subscribeToActiveReports((activeReports) => {
-      setReports(activeReports);
-      setLoading(false);
-    });
-
-    return unsubscribe;
   }, []);
 
   const loadReports = async () => {
     try {
-      const activeReports = await firebaseService.getActiveReports();
-      setReports(activeReports);
+      // Mock data
+      const mockReports: CommunityReport[] = [
+        {
+          id: '1',
+          type: 'Accident',
+          description: 'Multi-car accident blocking two lanes on Highway 101 North',
+          location: {
+            address: 'Highway 101 North, Exit 42',
+            coordinates: { lat: 37.7749, lng: -122.4194 }
+          },
+          status: 'active',
+          votes: { helpful: 15, notHelpful: 2 },
+          createdAt: new Date(Date.now() - 1800000)
+        },
+        {
+          id: '2',
+          type: 'Road Work',
+          description: 'Construction crew working on bridge repairs, expect delays',
+          location: {
+            address: 'Bay Bridge, Eastbound',
+            coordinates: { lat: 37.7949, lng: -122.3994 }
+          },
+          status: 'active',
+          votes: { helpful: 8, notHelpful: 1 },
+          createdAt: new Date(Date.now() - 3600000)
+        },
+        {
+          id: '3',
+          type: 'Police',
+          description: 'Speed trap setup near downtown exit',
+          location: {
+            address: 'I-280 South, Exit 57',
+            coordinates: { lat: 37.7649, lng: -122.4294 }
+          },
+          status: 'active',
+          votes: { helpful: 23, notHelpful: 0 },
+          createdAt: new Date(Date.now() - 900000)
+        }
+      ];
+      setReports(mockReports);
     } catch (error) {
       console.error('Error loading reports:', error);
       Alert.alert('Error', 'Failed to load reports');
@@ -114,7 +160,7 @@ export default function ReportsScreen() {
   };
 
   const handleSubmitReport = async () => {
-    if (!user || !selectedReportType || !reportDescription || !reportLocation) {
+    if (!selectedReportType || !reportDescription || !reportLocation) {
       Alert.alert('Missing Information', 'Please fill in all fields.');
       return;
     }
@@ -123,21 +169,20 @@ export default function ReportsScreen() {
       const reportType = reportTypes.find(t => t.id === selectedReportType);
       if (!reportType) return;
 
-      const reportData = {
-        userId: user.uid,
+      const newReport: CommunityReport = {
+        id: Date.now().toString(),
         type: reportType.name,
         description: reportDescription,
         location: {
           address: reportLocation,
-          coordinates: {
-            lat: 0, // In a real app, you'd get actual coordinates
-            lng: 0,
-          },
+          coordinates: { lat: 0, lng: 0 }
         },
-        status: 'active' as const,
+        status: 'active',
+        votes: { helpful: 0, notHelpful: 0 },
+        createdAt: new Date()
       };
 
-      await firebaseService.submitReport(reportData);
+      setReports(prev => [newReport, ...prev]);
       
       // Reset form
       setSelectedReportType('');
@@ -154,7 +199,17 @@ export default function ReportsScreen() {
 
   const handleVoteOnReport = async (reportId: string, voteType: 'helpful' | 'notHelpful') => {
     try {
-      await firebaseService.voteOnReport(reportId, voteType);
+      setReports(prev => prev.map(report => 
+        report.id === reportId 
+          ? {
+              ...report,
+              votes: {
+                ...report.votes,
+                [voteType]: report.votes[voteType] + 1
+              }
+            }
+          : report
+      ));
       Alert.alert('Thank you', 'Your vote has been recorded!');
     } catch (error) {
       console.error('Error voting on report:', error);
@@ -162,21 +217,14 @@ export default function ReportsScreen() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    return status === 'active' ? '#059669' : '#6B7280';
-  };
-
   const getReportTypeColor = (type: string) => {
     const reportType = reportTypes.find(t => t.name === type);
     return reportType?.color || '#6B7280';
   };
 
-  const formatTimestamp = (timestamp: any) => {
-    if (!timestamp) return 'Unknown time';
-    
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  const formatTimestamp = (timestamp: Date) => {
     const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
+    const diffMs = now.getTime() - timestamp.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     
     if (diffMins < 1) return 'Just now';
@@ -205,7 +253,6 @@ export default function ReportsScreen() {
       </View>
 
       <ScrollView style={styles.content}>
-        {/* Active Reports */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Active Reports ({reports.length})</Text>
           {reports
@@ -222,11 +269,7 @@ export default function ReportsScreen() {
                     />
                     <Text style={styles.typeName}>{report.type}</Text>
                   </View>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: getStatusColor(report.status) },
-                    ]}>
+                  <View style={styles.statusBadge}>
                     <Text style={styles.statusText}>Active</Text>
                   </View>
                 </View>
@@ -242,7 +285,6 @@ export default function ReportsScreen() {
                   </View>
                 </View>
                 
-                {/* Voting buttons */}
                 <View style={styles.votingContainer}>
                   <TouchableOpacity
                     style={styles.voteButton}
@@ -433,6 +475,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    backgroundColor: '#059669',
   },
   statusText: {
     color: '#FFFFFF',
