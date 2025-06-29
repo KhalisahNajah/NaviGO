@@ -8,11 +8,12 @@ import {
   Switch,
   Alert,
 } from 'react-native';
-import { User, Settings, MapPin, Bell, Shield, CircleHelp as HelpCircle, Star, Phone, Navigation, Fuel, ChevronRight, LogOut } from 'lucide-react-native';
+import { User, Settings, MapPin, Bell, Shield, CircleHelp as HelpCircle, Star, Phone, Navigation, Fuel, ChevronRight, LogOut, UserCheck } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { router } from 'expo-router';
 
 export default function ProfileScreen() {
-  const { user, userProfile, updateProfile, signOut } = useAuth();
+  const { user, userProfile, updateProfile, signOut, isGuest } = useAuth();
   const [updating, setUpdating] = useState(false);
 
   const handleToggleSetting = async (setting: string, value: boolean) => {
@@ -36,12 +37,12 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
+      isGuest ? 'Exit Guest Mode' : 'Logout',
+      isGuest ? 'Are you sure you want to exit guest mode?' : 'Are you sure you want to logout?',
       [
         { text: 'Cancel', style: 'cancel' },
         { 
-          text: 'Logout', 
+          text: isGuest ? 'Exit' : 'Logout', 
           style: 'destructive', 
           onPress: async () => {
             try {
@@ -54,6 +55,10 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  const handleUpgradeAccount = () => {
+    router.push('/auth');
   };
 
   const MenuSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -69,7 +74,8 @@ export default function ProfileScreen() {
     subtitle, 
     onPress, 
     showArrow = true,
-    rightElement 
+    rightElement,
+    disabled = false
   }: {
     icon: any;
     title: string;
@@ -77,16 +83,21 @@ export default function ProfileScreen() {
     onPress?: () => void;
     showArrow?: boolean;
     rightElement?: React.ReactNode;
+    disabled?: boolean;
   }) => {
     const IconComponent = icon;
     return (
-      <TouchableOpacity style={styles.menuItem} onPress={onPress}>
+      <TouchableOpacity 
+        style={[styles.menuItem, disabled && styles.menuItemDisabled]} 
+        onPress={onPress}
+        disabled={disabled}
+      >
         <View style={styles.menuItemLeft}>
-          <View style={styles.iconContainer}>
-            <IconComponent size={20} color="#2563EB" />
+          <View style={[styles.iconContainer, disabled && styles.iconContainerDisabled]}>
+            <IconComponent size={20} color={disabled ? "#9CA3AF" : "#2563EB"} />
           </View>
           <View>
-            <Text style={styles.menuItemTitle}>{title}</Text>
+            <Text style={[styles.menuItemTitle, disabled && styles.menuItemTitleDisabled]}>{title}</Text>
             {subtitle && <Text style={styles.menuItemSubtitle}>{subtitle}</Text>}
           </View>
         </View>
@@ -98,7 +109,7 @@ export default function ProfileScreen() {
     );
   };
 
-  if (!user || !userProfile) {
+  if (!userProfile) {
     return (
       <View style={[styles.container, styles.centered]}>
         <Text>Loading profile...</Text>
@@ -115,17 +126,30 @@ export default function ProfileScreen() {
       {/* Profile Info */}
       <View style={styles.profileCard}>
         <View style={styles.profileInfo}>
-          <View style={styles.avatar}>
-            <User size={32} color="#FFFFFF" />
+          <View style={[styles.avatar, isGuest && styles.guestAvatar]}>
+            {isGuest ? (
+              <UserCheck size={32} color="#FFFFFF" />
+            ) : (
+              <User size={32} color="#FFFFFF" />
+            )}
           </View>
           <View>
             <Text style={styles.userName}>{userProfile.displayName}</Text>
             <Text style={styles.userEmail}>{userProfile.email}</Text>
+            {isGuest && (
+              <Text style={styles.guestBadge}>Guest Mode</Text>
+            )}
           </View>
         </View>
-        <TouchableOpacity style={styles.editButton}>
-          <Text style={styles.editButtonText}>Edit Profile</Text>
-        </TouchableOpacity>
+        {isGuest ? (
+          <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgradeAccount}>
+            <Text style={styles.upgradeButtonText}>Create Account</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.editButton}>
+            <Text style={styles.editButtonText}>Edit Profile</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Statistics */}
@@ -200,30 +224,32 @@ export default function ProfileScreen() {
         <MenuItem
           icon={Bell}
           title="Push Notifications"
-          subtitle="Traffic alerts and updates"
+          subtitle={isGuest ? "Sign up to enable notifications" : "Traffic alerts and updates"}
           showArrow={false}
+          disabled={isGuest}
           rightElement={
             <Switch
               value={userProfile.preferences.notifications}
               onValueChange={(value) => handleToggleSetting('notifications', value)}
               trackColor={{ false: '#E5E7EB', true: '#93C5FD' }}
               thumbColor={userProfile.preferences.notifications ? '#2563EB' : '#9CA3AF'}
-              disabled={updating}
+              disabled={updating || isGuest}
             />
           }
         />
         <MenuItem
           icon={MapPin}
           title="Location Sharing"
-          subtitle="Help improve traffic data"
+          subtitle={isGuest ? "Sign up to enable location sharing" : "Help improve traffic data"}
           showArrow={false}
+          disabled={isGuest}
           rightElement={
             <Switch
               value={userProfile.preferences.locationSharing}
               onValueChange={(value) => handleToggleSetting('locationSharing', value)}
               trackColor={{ false: '#E5E7EB', true: '#93C5FD' }}
               thumbColor={userProfile.preferences.locationSharing ? '#2563EB' : '#9CA3AF'}
-              disabled={updating}
+              disabled={updating || isGuest}
             />
           }
         />
@@ -267,7 +293,9 @@ export default function ProfileScreen() {
         />
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <LogOut size={20} color="#DC2626" />
-          <Text style={styles.logoutText}>Logout</Text>
+          <Text style={styles.logoutText}>
+            {isGuest ? 'Exit Guest Mode' : 'Logout'}
+          </Text>
         </TouchableOpacity>
       </MenuSection>
 
@@ -325,6 +353,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 16,
   },
+  guestAvatar: {
+    backgroundColor: '#6B7280',
+  },
   userName: {
     fontSize: 18,
     fontWeight: '600',
@@ -334,6 +365,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 2,
+  },
+  guestBadge: {
+    fontSize: 12,
+    color: '#F59E0B',
+    fontWeight: '600',
+    marginTop: 4,
   },
   editButton: {
     backgroundColor: '#F3F4F6',
@@ -346,6 +383,18 @@ const styles = StyleSheet.create({
     color: '#2563EB',
     fontSize: 14,
     fontWeight: '500',
+  },
+  upgradeButton: {
+    backgroundColor: '#2563EB',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  upgradeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   statsCard: {
     backgroundColor: '#FFFFFF',
@@ -412,6 +461,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
+  menuItemDisabled: {
+    opacity: 0.5,
+  },
   menuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -426,10 +478,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
+  iconContainerDisabled: {
+    backgroundColor: '#F3F4F6',
+  },
   menuItemTitle: {
     fontSize: 16,
     fontWeight: '500',
     color: '#1F2937',
+  },
+  menuItemTitleDisabled: {
+    color: '#9CA3AF',
   },
   menuItemSubtitle: {
     fontSize: 12,

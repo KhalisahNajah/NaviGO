@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
 import { firebaseService, UserProfile } from '@/services/firebaseService';
 import { analyticsService } from '@/services/analyticsService';
+import { router } from 'expo-router';
 
 interface AuthContextType {
   user: User | null;
@@ -12,6 +13,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  enableGuestMode: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -128,10 +130,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await firebaseService.signOut();
       }
       setIsGuest(false);
+      router.replace('/auth');
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
     }
+  };
+
+  const enableGuestMode = () => {
+    setIsGuest(true);
+    setLoading(false);
+    analyticsService.trackEvent('guest_mode_enabled');
   };
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
@@ -156,6 +165,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Update profile error:', error);
         throw error;
       }
+    } else if (isGuest) {
+      // For guest users, just update the local state
+      setUserProfile(prev => prev ? { ...prev, ...updates } : null);
     }
   };
 
@@ -193,7 +205,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signUp,
     signOut,
-    updateProfile
+    updateProfile,
+    enableGuestMode
   };
 
   return (

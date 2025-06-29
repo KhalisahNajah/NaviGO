@@ -20,7 +20,7 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, enableGuestMode } = useAuth();
 
   const handleAuth = async () => {
     if (!email || !password || (isSignUp && !displayName)) {
@@ -44,7 +44,7 @@ export default function AuthScreen() {
   };
 
   const handleGuestMode = () => {
-    // Navigate to tabs without authentication
+    enableGuestMode();
     router.replace('/(tabs)');
   };
 
