@@ -277,14 +277,6 @@ export default function MapScreen() {
     }
   };
 
-  const handleSetDefault = (carId: string) => {
-    setCars(prev => prev.map(car => ({
-      ...car,
-      isDefault: car.id === carId
-    })));
-    Alert.alert('Success', 'Default car updated!');
-  };
-
   const handleSendMessage = () => {
     if (!newMessage.trim()) return;
 
