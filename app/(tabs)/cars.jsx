@@ -10,7 +10,7 @@ import {
   Alert,
   Image,
 } from 'react-native';
-import { Car, Plus, Edit, Trash2, Fuel, DollarSign, Star, Save, Globe } from 'lucide-react-native';
+import { Car, Plus, CreditCard as Edit, Trash2, Fuel, DollarSign, Star, Save, Globe } from 'lucide-react-native';
 
 export default function CarsScreen() {
   const [cars, setCars] = useState([

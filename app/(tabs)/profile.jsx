@@ -9,7 +9,7 @@ import {
   Alert,
   Image,
 } from 'react-native';
-import { User, Settings, MapPin, Bell, Shield, HelpCircle, Star, Phone, Navigation, Fuel, ChevronRight, LogOut } from 'lucide-react-native';
+import { User, Settings, MapPin, Bell, Shield, CircleHelp as HelpCircle, Star, Phone, Navigation, Fuel, ChevronRight, LogOut } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const [userProfile, setUserProfile] = useState({
