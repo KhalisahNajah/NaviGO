@@ -1,6 +1,6 @@
-# NaviFuel - Smart Navigation & Fuel Calculator (Flutter)
+# NaviFuel - Smart Navigation & Fuel Calculator
 
-A comprehensive mobile navigation app built with Flutter, featuring integrated fuel cost calculation, route optimization, and community reporting features.
+A comprehensive mobile navigation app with integrated fuel cost calculation, route optimization, and community reporting features.
 
 ## Features
 
@@ -30,28 +30,26 @@ A comprehensive mobile navigation app built with Flutter, featuring integrated f
 - **Gas Station Finder**: Locate nearby gas stations with pricing information
 
 ### 📱 User Experience
-- **Modern UI/UX**: Clean, intuitive interface with Material Design
+- **Modern UI/UX**: Clean, intuitive interface with smooth animations
 - **Responsive Design**: Optimized for all screen sizes and orientations
 - **Offline Support**: Basic functionality available without internet connection
 - **Customizable Settings**: Personalized preferences and notification controls
 
 ## Technology Stack
 
-- **Framework**: Flutter 3.10+
-- **Language**: Dart
-- **State Management**: Provider pattern
-- **Maps**: Google Maps Flutter plugin
-- **Location Services**: Geolocator and Location packages
-- **Local Storage**: SharedPreferences
-- **HTTP Requests**: HTTP package
-- **UI Components**: Material Design components
+- **Framework**: React Native with Expo
+- **Navigation**: Expo Router with tab-based architecture
+- **Maps**: Google Maps API with Places API integration
+- **Location Services**: Expo Location for GPS functionality
+- **State Management**: React Hooks and Context API
+- **Styling**: StyleSheet with modern design principles
+- **Icons**: Lucide React Native for consistent iconography
 
 ## Getting Started
 
 ### Prerequisites
-- Flutter SDK (3.10.0 or higher)
-- Dart SDK (3.0.0 or higher)
-- Android Studio / VS Code
+- Node.js (v16 or higher)
+- Expo CLI
 - Google Maps API key
 
 ### Installation
@@ -64,63 +62,58 @@ cd navifuel
 
 2. Install dependencies:
 ```bash
-flutter pub get
+npm install
 ```
 
-3. Configure Google Maps API:
-   - Get your API key from [Google Cloud Console](https://console.cloud.google.com/)
-   - Add the API key to `android/app/src/main/AndroidManifest.xml`:
-   ```xml
-   <meta-data android:name="com.google.android.geo.API_KEY"
-              android:value="YOUR_API_KEY_HERE"/>
-   ```
-   - For iOS, add to `ios/Runner/AppDelegate.swift`:
-   ```swift
-   GMSServices.provideAPIKey("YOUR_API_KEY_HERE")
-   ```
-
-4. Run the app:
+3. Configure environment variables:
 ```bash
-flutter run
+# Create .env file
+EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
 ```
+
+4. Start the development server:
+```bash
+npm run dev
+```
+
+### Google Maps API Setup
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the following APIs:
+   - Maps JavaScript API
+   - Places API
+   - Directions API
+   - Geocoding API
+4. Create credentials (API Key)
+5. Add the API key to your `.env` file
 
 ## Project Structure
 
 ```
-lib/
-├── main.dart                 # App entry point
-├── models/                   # Data models
-│   ├── car.dart
-│   ├── currency.dart
-│   ├── route_result.dart
-│   ├── gas_station.dart
-│   └── traffic_report.dart
-├── providers/                # State management
-│   ├── app_state.dart
-│   ├── car_provider.dart
-│   └── location_provider.dart
-├── screens/                  # Main screens
-│   ├── main_screen.dart
-│   ├── map_screen.dart
-│   ├── cars_screen.dart
-│   ├── chat_screen.dart
-│   ├── reports_screen.dart
-│   └── profile_screen.dart
-├── widgets/                  # Reusable widgets
-│   ├── map_widget.dart
-│   ├── route_search_widget.dart
-│   ├── car_card_widget.dart
-│   └── [other widgets]
-└── utils/
-    └── theme.dart           # App theme configuration
+app/
+├── (tabs)/
+│   ├── map.jsx              # Map and navigation screen
+│   ├── cars.jsx             # Vehicle management
+│   ├── chat.jsx             # Community chat
+│   ├── reports.jsx          # Community reporting
+│   └── profile.jsx          # User settings
+├── _layout.jsx              # Root layout
+└── +not-found.jsx           # 404 page
+
+hooks/
+└── useFrameworkReady.js     # Framework initialization hook
 ```
 
 ## Key Features Implementation
 
 ### Multi-Currency Support
 The app supports 12+ currencies with automatic conversion and localized pricing:
-- US Dollar (USD), Malaysian Ringgit (MYR), Euro (EUR), British Pound (GBP), and more
-- Real-time currency selection with persistent storage
+- US Dollar (USD)
+- Malaysian Ringgit (MYR)
+- Euro (EUR)
+- British Pound (GBP)
+- And more...
 
 ### Route Optimization Algorithm
 Routes are optimized based on:
@@ -136,33 +129,6 @@ Users can report various road conditions:
 - Road construction and lane closures
 - Weather conditions and hazards
 - Fallen trees and debris
-
-### Car Profile Management
-- Add multiple vehicles with detailed specifications
-- Track fuel efficiency (km/L) for accurate cost calculations
-- Set default vehicle for quick route planning
-- Support for different fuel types (Regular, Premium, Diesel)
-
-## Permissions
-
-The app requires the following permissions:
-- **Location**: For navigation and finding nearby services
-- **Phone**: For emergency contact functionality
-- **Internet**: For maps, traffic data, and community features
-
-## Building for Production
-
-### Android
-```bash
-flutter build apk --release
-# or for app bundle
-flutter build appbundle --release
-```
-
-### iOS
-```bash
-flutter build ios --release
-```
 
 ## Contributing
 
