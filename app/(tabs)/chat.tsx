@@ -9,7 +9,7 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
-import { MessageCircle, Send, MapPin, Clock, Users, AlertTriangle, Navigation } from 'lucide-react-native';
+import { MessageCircle, Send, MapPin, Clock, Users, TriangleAlert as AlertTriangle, Navigation } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { analyticsService } from '@/services/analyticsService';
 import * as Location from 'expo-location';
