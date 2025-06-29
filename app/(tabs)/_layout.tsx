@@ -4,19 +4,19 @@ import { MapPin, Car, TriangleAlert as AlertTriangle, User, MessageCircle } from
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function TabLayout() {
-  const { user, loading } = useAuth();
+  const { user, loading, isGuest } = useAuth();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && !isGuest) {
       router.replace('/auth');
     }
-  }, [user, loading]);
+  }, [user, loading, isGuest]);
 
   if (loading) {
     return null; // Or a loading screen
   }
 
-  if (!user) {
+  if (!user && !isGuest) {
     return null;
   }
 

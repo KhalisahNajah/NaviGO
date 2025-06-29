@@ -7,6 +7,7 @@ interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
+  isGuest: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -19,14 +20,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
     const unsubscribe = firebaseService.onAuthStateChanged(async (user) => {
       setUser(user);
       
       if (user) {
+        setIsGuest(false);
         try {
-          const profile = await firebaseService.getUserProfile(user.uid);
+          let profile = await firebaseService.getUserProfile(user.uid);
+          
+          // Create profile if it doesn't exist
+          if (!profile) {
+            await firebaseService.createUserProfile(user.uid, {
+              email: user.email || '',
+              displayName: user.displayName || 'User',
+              currency: {
+                code: 'USD',
+                symbol: '$',
+                name: 'US Dollar'
+              },
+              preferences: {
+                voiceNavigation: true,
+                autoReroute: true,
+                notifications: true,
+                locationSharing: true
+              },
+              stats: {
+                tripsSaved: 0,
+                fuelSaved: 0,
+                reportsSubmitted: 0,
+                communityRating: 5.0
+              }
+            });
+            profile = await firebaseService.getUserProfile(user.uid);
+          }
+          
           setUserProfile(profile);
           
           // Set analytics user
@@ -47,18 +77,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } else {
         setUserProfile(null);
-        analyticsService.trackEvent('user_signed_out');
+        if (!isGuest) {
+          analyticsService.trackEvent('user_signed_out');
+        }
       }
       
       setLoading(false);
     });
 
     return unsubscribe;
-  }, []);
+  }, [isGuest]);
 
   const signIn = async (email: string, password: string) => {
     try {
       await firebaseService.signIn(email, password);
+      setIsGuest(false);
       analyticsService.trackEvent('sign_in', {
         method: 'email',
       });
@@ -75,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, displayName: string) => {
     try {
       await firebaseService.signUp(email, password, displayName);
+      setIsGuest(false);
       analyticsService.trackEvent('sign_up', {
         method: 'email',
       });
@@ -90,7 +124,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      await firebaseService.signOut();
+      if (user) {
+        await firebaseService.signOut();
+      }
+      setIsGuest(false);
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
@@ -122,10 +159,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Create a mock profile for guest users
+  const guestProfile: UserProfile = {
+    id: 'guest',
+    email: 'guest@navifuel.com',
+    displayName: 'Guest User',
+    currency: {
+      code: 'USD',
+      symbol: '$',
+      name: 'US Dollar'
+    },
+    preferences: {
+      voiceNavigation: true,
+      autoReroute: true,
+      notifications: false,
+      locationSharing: false
+    },
+    stats: {
+      tripsSaved: 0,
+      fuelSaved: 0,
+      reportsSubmitted: 0,
+      communityRating: 5.0
+    },
+    createdAt: new Date() as any,
+    updatedAt: new Date() as any
+  };
+
   const value = {
     user,
-    userProfile,
+    userProfile: isGuest ? guestProfile : userProfile,
     loading,
+    isGuest,
     signIn,
     signUp,
     signOut,

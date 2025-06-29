@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { Car, Mail, Lock, User } from 'lucide-react-native';
+import { Car, Mail, Lock, User, UserCheck } from 'lucide-react-native';
 
 export default function AuthScreen() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -41,6 +41,11 @@ export default function AuthScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGuestMode = () => {
+    // Navigate to tabs without authentication
+    router.replace('/(tabs)');
   };
 
   return (
@@ -121,6 +126,21 @@ export default function AuthScreen() {
               }
             </Text>
           </TouchableOpacity>
+
+          {/* Guest Mode Button */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <TouchableOpacity
+            style={styles.guestButton}
+            onPress={handleGuestMode}
+          >
+            <UserCheck size={20} color="#6B7280" />
+            <Text style={styles.guestButtonText}>Continue as Guest</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.features}>
@@ -131,6 +151,7 @@ export default function AuthScreen() {
             <Text style={styles.featureItem}>🚗 Multiple car profile management</Text>
             <Text style={styles.featureItem}>🚨 Community road condition reports</Text>
             <Text style={styles.featureItem}>💰 Multi-currency support</Text>
+            <Text style={styles.featureItem}>💬 Real-time traffic chat</Text>
           </View>
         </View>
       </ScrollView>
@@ -228,6 +249,38 @@ const styles = StyleSheet.create({
     color: '#2563EB',
     fontSize: 14,
     fontWeight: '500',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  guestButton: {
+    backgroundColor: '#F3F4F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  guestButtonText: {
+    color: '#6B7280',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   features: {
     backgroundColor: '#FFFFFF',
