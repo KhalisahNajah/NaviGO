@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,16 +9,9 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { TriangleAlert as AlertTriangle, Car, Construction, TreePine, Circle, Clock, MapPin, Send, Slice as Police, CloudRain } from 'lucide-react-native';
-
-interface Report {
-  id: string;
-  type: string;
-  description: string;
-  location: string;
-  timestamp: string;
-  status: 'active' | 'resolved';
-}
+import { TriangleAlert as AlertTriangle, Car, Construction, TreePine, Clock, MapPin, Send, Slice as Police, CloudRain } from 'lucide-react-native';
+import { useAuth } from '@/contexts/AuthContext';
+import { firebaseService, CommunityReport } from '@/services/firebaseService';
 
 interface ReportType {
   id: string;
@@ -29,37 +22,13 @@ interface ReportType {
 }
 
 export default function ReportsScreen() {
-  const [reports, setReports] = useState<Report[]>([
-    {
-      id: '1',
-      type: 'Police',
-      description: 'Speed trap reported',
-      location: 'Highway 401, Exit 394',
-      timestamp: '5 minutes ago',
-      status: 'active',
-    },
-    {
-      id: '2',
-      type: 'Accident',
-      description: 'Minor fender bender, right lane blocked',
-      location: 'Main St & Oak Ave',
-      timestamp: '12 minutes ago',
-      status: 'active',
-    },
-    {
-      id: '3',
-      type: 'Road Work',
-      description: 'Lane closure for maintenance',
-      location: 'I-95 Southbound',
-      timestamp: '1 hour ago',
-      status: 'resolved',
-    },
-  ]);
-
+  const { user } = useAuth();
+  const [reports, setReports] = useState<CommunityReport[]>([]);
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedReportType, setSelectedReportType] = useState<string>('');
   const [reportDescription, setReportDescription] = useState('');
   const [reportLocation, setReportLocation] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const reportTypes: ReportType[] = [
     {
@@ -120,30 +89,77 @@ export default function ReportsScreen() {
     },
   ];
 
-  const handleSubmitReport = () => {
-    if (!selectedReportType || !reportDescription || !reportLocation) {
+  useEffect(() => {
+    loadReports();
+    
+    // Subscribe to real-time updates
+    const unsubscribe = firebaseService.subscribeToActiveReports((activeReports) => {
+      setReports(activeReports);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const loadReports = async () => {
+    try {
+      const activeReports = await firebaseService.getActiveReports();
+      setReports(activeReports);
+    } catch (error) {
+      console.error('Error loading reports:', error);
+      Alert.alert('Error', 'Failed to load reports');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitReport = async () => {
+    if (!user || !selectedReportType || !reportDescription || !reportLocation) {
       Alert.alert('Missing Information', 'Please fill in all fields.');
       return;
     }
 
-    const newReport: Report = {
-      id: Date.now().toString(),
-      type: reportTypes.find(t => t.id === selectedReportType)?.name || '',
-      description: reportDescription,
-      location: reportLocation,
-      timestamp: 'Just now',
-      status: 'active',
-    };
+    try {
+      const reportType = reportTypes.find(t => t.id === selectedReportType);
+      if (!reportType) return;
 
-    setReports([newReport, ...reports]);
-    
-    // Reset form
-    setSelectedReportType('');
-    setReportDescription('');
-    setReportLocation('');
-    setShowReportModal(false);
+      const reportData = {
+        userId: user.uid,
+        type: reportType.name,
+        description: reportDescription,
+        location: {
+          address: reportLocation,
+          coordinates: {
+            lat: 0, // In a real app, you'd get actual coordinates
+            lng: 0,
+          },
+        },
+        status: 'active' as const,
+      };
 
-    Alert.alert('Report Submitted', 'Thank you for helping the community stay informed!');
+      await firebaseService.submitReport(reportData);
+      
+      // Reset form
+      setSelectedReportType('');
+      setReportDescription('');
+      setReportLocation('');
+      setShowReportModal(false);
+
+      Alert.alert('Report Submitted', 'Thank you for helping the community stay informed!');
+    } catch (error) {
+      console.error('Error submitting report:', error);
+      Alert.alert('Error', 'Failed to submit report');
+    }
+  };
+
+  const handleVoteOnReport = async (reportId: string, voteType: 'helpful' | 'notHelpful') => {
+    try {
+      await firebaseService.voteOnReport(reportId, voteType);
+      Alert.alert('Thank you', 'Your vote has been recorded!');
+    } catch (error) {
+      console.error('Error voting on report:', error);
+      Alert.alert('Error', 'Failed to record your vote');
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -154,6 +170,28 @@ export default function ReportsScreen() {
     const reportType = reportTypes.find(t => t.name === type);
     return reportType?.color || '#6B7280';
   };
+
+  const formatTimestamp = (timestamp: any) => {
+    if (!timestamp) return 'Unknown time';
+    
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minutes ago`;
+    if (diffMins < 1440) return `${Math.floor(diffMins / 60)} hours ago`;
+    return `${Math.floor(diffMins / 1440)} days ago`;
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text>Loading reports...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -169,7 +207,7 @@ export default function ReportsScreen() {
       <ScrollView style={styles.content}>
         {/* Active Reports */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Active Reports</Text>
+          <Text style={styles.sectionTitle}>Active Reports ({reports.length})</Text>
           {reports
             .filter(report => report.status === 'active')
             .map((report) => (
@@ -196,60 +234,26 @@ export default function ReportsScreen() {
                 <View style={styles.reportMeta}>
                   <View style={styles.metaItem}>
                     <MapPin size={14} color="#6B7280" />
-                    <Text style={styles.metaText}>{report.location}</Text>
+                    <Text style={styles.metaText}>{report.location.address}</Text>
                   </View>
                   <View style={styles.metaItem}>
                     <Clock size={14} color="#6B7280" />
-                    <Text style={styles.metaText}>{report.timestamp}</Text>
+                    <Text style={styles.metaText}>{formatTimestamp(report.createdAt)}</Text>
                   </View>
                 </View>
-              </View>
-            ))}
-        </View>
-
-        {/* Resolved Reports */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recently Resolved</Text>
-          {reports
-            .filter(report => report.status === 'resolved')
-            .map((report) => (
-              <View key={report.id} style={[styles.reportCard, styles.resolvedCard]}>
-                <View style={styles.reportHeader}>
-                  <View style={styles.reportType}>
-                    <View
-                      style={[
-                        styles.typeIndicator,
-                        { backgroundColor: '#6B7280' },
-                      ]}
-                    />
-                    <Text style={[styles.typeName, { color: '#6B7280' }]}>
-                      {report.type}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: '#6B7280' },
-                    ]}>
-                    <Text style={styles.statusText}>Resolved</Text>
-                  </View>
-                </View>
-                <Text style={[styles.reportDescription, { color: '#6B7280' }]}>
-                  {report.description}
-                </Text>
-                <View style={styles.reportMeta}>
-                  <View style={styles.metaItem}>
-                    <MapPin size={14} color="#9CA3AF" />
-                    <Text style={[styles.metaText, { color: '#9CA3AF' }]}>
-                      {report.location}
-                    </Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <Clock size={14} color="#9CA3AF" />
-                    <Text style={[styles.metaText, { color: '#9CA3AF' }]}>
-                      {report.timestamp}
-                    </Text>
-                  </View>
+                
+                {/* Voting buttons */}
+                <View style={styles.votingContainer}>
+                  <TouchableOpacity
+                    style={styles.voteButton}
+                    onPress={() => handleVoteOnReport(report.id, 'helpful')}>
+                    <Text style={styles.voteButtonText}>👍 Helpful ({report.votes.helpful})</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.voteButton}
+                    onPress={() => handleVoteOnReport(report.id, 'notHelpful')}>
+                    <Text style={styles.voteButtonText}>👎 Not Helpful ({report.votes.notHelpful})</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             ))}
@@ -258,7 +262,7 @@ export default function ReportsScreen() {
         {reports.length === 0 && (
           <View style={styles.emptyState}>
             <AlertTriangle size={48} color="#9CA3AF" />
-            <Text style={styles.emptyTitle}>No Reports</Text>
+            <Text style={styles.emptyTitle}>No Active Reports</Text>
             <Text style={styles.emptyText}>
               Be the first to report road conditions in your area
             </Text>
@@ -353,6 +357,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -400,9 +408,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  resolvedCard: {
-    opacity: 0.7,
-  },
   reportHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -443,6 +448,7 @@ const styles = StyleSheet.create({
   reportMeta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 12,
   },
   metaItem: {
     flexDirection: 'row',
@@ -452,6 +458,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     marginLeft: 4,
+  },
+  votingContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  voteButton: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  voteButtonText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
   },
   emptyState: {
     alignItems: 'center',

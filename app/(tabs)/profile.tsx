@@ -8,19 +8,30 @@ import {
   Switch,
   Alert,
 } from 'react-native';
-import { User, Settings, MapPin, Bell, Shield, CircleHelp as HelpCircle, Star, Phone, Navigation, Fuel, ChevronRight } from 'lucide-react-native';
+import { User, Settings, MapPin, Bell, Shield, CircleHelp as HelpCircle, Star, Phone, Navigation, Fuel, ChevronRight, LogOut } from 'lucide-react-native';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function ProfileScreen() {
-  const [notifications, setNotifications] = useState(true);
-  const [locationSharing, setLocationSharing] = useState(true);
-  const [voiceNavigation, setVoiceNavigation] = useState(true);
-  const [autoReroute, setAutoReroute] = useState(true);
+  const { user, userProfile, updateProfile, signOut } = useAuth();
+  const [updating, setUpdating] = useState(false);
 
-  const stats = {
-    tripsSaved: 47,
-    fuelSaved: '$234.50',
-    reportsSubmitted: 12,
-    communityRating: 4.8,
+  const handleToggleSetting = async (setting: string, value: boolean) => {
+    if (!userProfile) return;
+    
+    setUpdating(true);
+    try {
+      await updateProfile({
+        preferences: {
+          ...userProfile.preferences,
+          [setting]: value
+        }
+      });
+    } catch (error) {
+      console.error('Error updating setting:', error);
+      Alert.alert('Error', 'Failed to update setting');
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const handleLogout = () => {
@@ -29,7 +40,18 @@ export default function ProfileScreen() {
       'Are you sure you want to logout?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: () => {} },
+        { 
+          text: 'Logout', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              await signOut();
+            } catch (error) {
+              console.error('Error signing out:', error);
+              Alert.alert('Error', 'Failed to sign out');
+            }
+          }
+        },
       ]
     );
   };
@@ -76,6 +98,14 @@ export default function ProfileScreen() {
     );
   };
 
+  if (!user || !userProfile) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text>Loading profile...</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -89,8 +119,8 @@ export default function ProfileScreen() {
             <User size={32} color="#FFFFFF" />
           </View>
           <View>
-            <Text style={styles.userName}>John Doe</Text>
-            <Text style={styles.userEmail}>john.doe@example.com</Text>
+            <Text style={styles.userName}>{userProfile.displayName}</Text>
+            <Text style={styles.userEmail}>{userProfile.email}</Text>
           </View>
         </View>
         <TouchableOpacity style={styles.editButton}>
@@ -104,22 +134,22 @@ export default function ProfileScreen() {
         <View style={styles.statsGrid}>
           <View style={styles.statItem}>
             <Navigation size={20} color="#2563EB" />
-            <Text style={styles.statValue}>{stats.tripsSaved}</Text>
+            <Text style={styles.statValue}>{userProfile.stats.tripsSaved}</Text>
             <Text style={styles.statLabel}>Trips Saved</Text>
           </View>
           <View style={styles.statItem}>
             <Fuel size={20} color="#059669" />
-            <Text style={styles.statValue}>{stats.fuelSaved}</Text>
+            <Text style={styles.statValue}>${userProfile.stats.fuelSaved}</Text>
             <Text style={styles.statLabel}>Fuel Saved</Text>
           </View>
           <View style={styles.statItem}>
             <Shield size={20} color="#EA580C" />
-            <Text style={styles.statValue}>{stats.reportsSubmitted}</Text>
+            <Text style={styles.statValue}>{userProfile.stats.reportsSubmitted}</Text>
             <Text style={styles.statLabel}>Reports</Text>
           </View>
           <View style={styles.statItem}>
             <Star size={20} color="#F59E0B" />
-            <Text style={styles.statValue}>{stats.communityRating}</Text>
+            <Text style={styles.statValue}>{userProfile.stats.communityRating.toFixed(1)}</Text>
             <Text style={styles.statLabel}>Rating</Text>
           </View>
         </View>
@@ -134,10 +164,11 @@ export default function ProfileScreen() {
           showArrow={false}
           rightElement={
             <Switch
-              value={voiceNavigation}
-              onValueChange={setVoiceNavigation}
+              value={userProfile.preferences.voiceNavigation}
+              onValueChange={(value) => handleToggleSetting('voiceNavigation', value)}
               trackColor={{ false: '#E5E7EB', true: '#93C5FD' }}
-              thumbColor={voiceNavigation ? '#2563EB' : '#9CA3AF'}
+              thumbColor={userProfile.preferences.voiceNavigation ? '#2563EB' : '#9CA3AF'}
+              disabled={updating}
             />
           }
         />
@@ -148,18 +179,19 @@ export default function ProfileScreen() {
           showArrow={false}
           rightElement={
             <Switch
-              value={autoReroute}
-              onValueChange={setAutoReroute}
+              value={userProfile.preferences.autoReroute}
+              onValueChange={(value) => handleToggleSetting('autoReroute', value)}
               trackColor={{ false: '#E5E7EB', true: '#93C5FD' }}
-              thumbColor={autoReroute ? '#2563EB' : '#9CA3AF'}
+              thumbColor={userProfile.preferences.autoReroute ? '#2563EB' : '#9CA3AF'}
+              disabled={updating}
             />
           }
         />
         <MenuItem
           icon={Fuel}
           title="Fuel Preferences"
-          subtitle="Manage fuel types and prices"
-          onPress={() => Alert.alert('Navigation', 'Fuel preferences coming soon')}
+          subtitle={`Currency: ${userProfile.currency.name}`}
+          onPress={() => Alert.alert('Navigation', 'Go to Cars tab to manage fuel preferences')}
         />
       </MenuSection>
 
@@ -172,10 +204,11 @@ export default function ProfileScreen() {
           showArrow={false}
           rightElement={
             <Switch
-              value={notifications}
-              onValueChange={setNotifications}
+              value={userProfile.preferences.notifications}
+              onValueChange={(value) => handleToggleSetting('notifications', value)}
               trackColor={{ false: '#E5E7EB', true: '#93C5FD' }}
-              thumbColor={notifications ? '#2563EB' : '#9CA3AF'}
+              thumbColor={userProfile.preferences.notifications ? '#2563EB' : '#9CA3AF'}
+              disabled={updating}
             />
           }
         />
@@ -186,10 +219,11 @@ export default function ProfileScreen() {
           showArrow={false}
           rightElement={
             <Switch
-              value={locationSharing}
-              onValueChange={setLocationSharing}
+              value={userProfile.preferences.locationSharing}
+              onValueChange={(value) => handleToggleSetting('locationSharing', value)}
               trackColor={{ false: '#E5E7EB', true: '#93C5FD' }}
-              thumbColor={locationSharing ? '#2563EB' : '#9CA3AF'}
+              thumbColor={userProfile.preferences.locationSharing ? '#2563EB' : '#9CA3AF'}
+              disabled={updating}
             />
           }
         />
@@ -232,6 +266,7 @@ export default function ProfileScreen() {
           onPress={() => Alert.alert('Settings', 'App settings coming soon')}
         />
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <LogOut size={20} color="#DC2626" />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </MenuSection>
@@ -248,6 +283,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     padding: 16,
@@ -402,17 +441,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     margin: 16,
     marginTop: 8,
     backgroundColor: '#FEF2F2',
     paddingVertical: 12,
     borderRadius: 8,
-    alignItems: 'center',
   },
   logoutText: {
     color: '#DC2626',
     fontSize: 16,
     fontWeight: '500',
+    marginLeft: 8,
   },
   footer: {
     alignItems: 'center',
