@@ -2,17 +2,14 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
-// Force JavaScript resolution and avoid TypeScript files in node_modules
-config.resolver.sourceExts = ['js', 'jsx', 'json'];
+// Include TypeScript files in source extensions
+config.resolver.sourceExts = ['js', 'jsx', 'json', 'ts', 'tsx'];
 config.resolver.assetExts = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'ttf', 'otf', 'woff', 'woff2'];
 
-// Completely block TypeScript files from node_modules
-config.resolver.blockList = [
-  /node_modules\/.*\.ts$/,
-  /node_modules\/.*\.tsx$/,
-];
+// Remove TypeScript blocking from node_modules to allow expo modules to work
+config.resolver.blockList = [];
 
-// Force module resolution to use compiled JavaScript versions
+// Force module resolution to use compiled JavaScript versions when available
 config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
 
 // Disable TypeScript transformer for node_modules
