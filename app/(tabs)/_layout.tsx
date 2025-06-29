@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Tabs, router } from 'expo-router';
-import { MapPin, Car, TriangleAlert as AlertTriangle, User } from 'lucide-react-native';
+import { MapPin, Car, TriangleAlert as AlertTriangle, User, MessageCircle } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function TabLayout() {
@@ -54,6 +54,15 @@ export default function TabLayout() {
           title: 'Cars',
           tabBarIcon: ({ size, color }) => (
             <Car size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: 'Chat',
+          tabBarIcon: ({ size, color }) => (
+            <MessageCircle size={size} color={color} />
           ),
         }}
       />

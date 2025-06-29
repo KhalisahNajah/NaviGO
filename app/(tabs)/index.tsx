@@ -10,10 +10,10 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { Search, Navigation, Cast as Gas, Clock, DollarSign, Route, MapPin, Phone } from 'lucide-react-native';
+import { Search, Navigation, Cast as Gas, Clock, DollarSign, Route, MapPin, Phone, Zap, MessageCircle, AlertTriangle } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import GoogleMap from '@/components/GoogleMap';
-import { googleMapsService, RouteResult, GasStation } from '@/services/googleMapsService';
+import { googleMapsService, RouteResult, GasStation, EVChargingStation } from '@/services/googleMapsService';
 import { analyticsService } from '@/services/analyticsService';
 
 export default function MapScreen() {
@@ -21,15 +21,34 @@ export default function MapScreen() {
   const [searchTo, setSearchTo] = useState('');
   const [showRoutes, setShowRoutes] = useState(false);
   const [showGasStations, setShowGasStations] = useState(false);
+  const [showEVStations, setShowEVStations] = useState(false);
   const [showEmergency, setShowEmergency] = useState(false);
+  const [showTrafficReport, setShowTrafficReport] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [routes, setRoutes] = useState<RouteResult[]>([]);
   const [gasStations, setGasStations] = useState<GasStation[]>([]);
+  const [evStations, setEVStations] = useState<EVChargingStation[]>([]);
   const [mapRoutes, setMapRoutes] = useState<Array<{
     origin: string;
     destination: string;
     waypoints?: string[];
   }>>([]);
+
+  // Traffic report state
+  const [trafficReportType, setTrafficReportType] = useState('');
+  const [trafficDescription, setTrafficDescription] = useState('');
+  const [trafficLocation, setTrafficLocation] = useState('');
+
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<Array<{
+    id: string;
+    user: string;
+    message: string;
+    timestamp: Date;
+    location?: string;
+  }>>([]);
+  const [newMessage, setNewMessage] = useState('');
 
   const emergencyContacts = [
     { name: 'Emergency Services', number: '911', icon: '🚨' },
@@ -38,8 +57,18 @@ export default function MapScreen() {
     { name: 'Medical Emergency', number: '1-800-MEDICAL', icon: '🏥' },
   ];
 
+  const trafficReportTypes = [
+    { id: 'heavy_traffic', name: 'Heavy Traffic', icon: '🚗', color: '#DC2626' },
+    { id: 'accident', name: 'Accident', icon: '💥', color: '#DC2626' },
+    { id: 'road_closure', name: 'Road Closure', icon: '🚧', color: '#F59E0B' },
+    { id: 'construction', name: 'Construction', icon: '🏗️', color: '#F59E0B' },
+    { id: 'weather', name: 'Weather Issue', icon: '🌧️', color: '#6B7280' },
+    { id: 'breakdown', name: 'Vehicle Breakdown', icon: '🔧', color: '#EA580C' },
+  ];
+
   useEffect(() => {
     getLocationPermission();
+    loadChatMessages();
     // Track screen view
     analyticsService.trackScreenView('Map');
   }, []);
@@ -186,6 +215,124 @@ export default function MapScreen() {
     }
   };
 
+  const handleFindEVStations = async () => {
+    if (location) {
+      try {
+        analyticsService.trackEvent('ev_station_search_started', {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+
+        const stations = await googleMapsService.findNearbyEVStations({
+          lat: location.coords.latitude,
+          lng: location.coords.longitude
+        });
+        setEVStations(stations);
+        setShowEVStations(true);
+        
+        analyticsService.trackEvent('ev_station_search_completed', {
+          location: `${location.coords.latitude},${location.coords.longitude}`,
+          station_count: stations.length,
+        });
+      } catch (error) {
+        console.error('Error finding EV stations:', error);
+        Alert.alert('Error', 'Failed to find EV charging stations. Please try again.');
+        
+        analyticsService.trackEvent('ev_station_search_failed', {
+          error: (error as Error).message,
+        });
+      }
+    } else {
+      Alert.alert('Location Required', 'Please enable location services to find nearby EV charging stations.');
+    }
+  };
+
+  const handleSubmitTrafficReport = async () => {
+    if (!trafficReportType || !trafficDescription || !trafficLocation) {
+      Alert.alert('Missing Information', 'Please fill in all fields.');
+      return;
+    }
+
+    try {
+      // In a real app, this would submit to your backend
+      analyticsService.trackEvent('traffic_report_submitted', {
+        report_type: trafficReportType,
+        location: trafficLocation,
+        description_length: trafficDescription.length,
+      });
+
+      // Reset form
+      setTrafficReportType('');
+      setTrafficDescription('');
+      setTrafficLocation('');
+      setShowTrafficReport(false);
+
+      Alert.alert('Report Submitted', 'Thank you for helping other drivers stay informed!');
+    } catch (error) {
+      console.error('Error submitting traffic report:', error);
+      Alert.alert('Error', 'Failed to submit traffic report');
+    }
+  };
+
+  const handleSendMessage = () => {
+    if (!newMessage.trim()) return;
+
+    const message = {
+      id: Date.now().toString(),
+      user: 'You',
+      message: newMessage.trim(),
+      timestamp: new Date(),
+      location: location ? `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}` : undefined,
+    };
+
+    setChatMessages(prev => [...prev, message]);
+    setNewMessage('');
+
+    analyticsService.trackEvent('chat_message_sent', {
+      message_length: message.message.length,
+      has_location: !!message.location,
+    });
+
+    // Simulate receiving a response (in a real app, this would be real-time)
+    setTimeout(() => {
+      const responses = [
+        'Thanks for the update! Traffic is moving slowly here too.',
+        'I see the same issue. Alternative route via Highway 101?',
+        'Construction crew just cleared up. Should be better now.',
+        'Weather is causing delays. Drive safe!',
+        'Police directing traffic at the intersection.',
+      ];
+      
+      const response = {
+        id: (Date.now() + 1).toString(),
+        user: 'Driver nearby',
+        message: responses[Math.floor(Math.random() * responses.length)],
+        timestamp: new Date(),
+      };
+
+      setChatMessages(prev => [...prev, response]);
+    }, 2000);
+  };
+
+  const loadChatMessages = () => {
+    // Mock initial messages
+    const mockMessages = [
+      {
+        id: '1',
+        user: 'Traffic Alert',
+        message: 'Heavy traffic reported on I-95 North. Consider alternate routes.',
+        timestamp: new Date(Date.now() - 300000), // 5 minutes ago
+      },
+      {
+        id: '2',
+        user: 'Local Driver',
+        message: 'Construction on Main St causing delays. Use Oak Ave instead.',
+        timestamp: new Date(Date.now() - 180000), // 3 minutes ago
+      },
+    ];
+    setChatMessages(mockMessages);
+  };
+
   const handleEmergencyContact = (contact: typeof emergencyContacts[0]) => {
     analyticsService.trackEmergencyContact(contact.name);
     // In a real app, this would initiate a phone call
@@ -203,6 +350,10 @@ export default function MapScreen() {
 
   const formatCurrency = (amount: number) => {
     return `$${amount.toFixed(2)}`;
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
@@ -226,6 +377,21 @@ export default function MapScreen() {
             analyticsService.trackEvent('map_loaded');
           }}
         />
+        
+        {/* Floating Chat Button */}
+        <TouchableOpacity
+          style={styles.chatButton}
+          onPress={() => {
+            setShowChat(true);
+            analyticsService.trackEvent('chat_opened');
+          }}>
+          <MessageCircle size={24} color="#FFFFFF" />
+          {chatMessages.length > 2 && (
+            <View style={styles.chatBadge}>
+              <Text style={styles.chatBadgeText}>{chatMessages.length - 2}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Search Controls */}
@@ -264,21 +430,27 @@ export default function MapScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.actionButton}
+          onPress={handleFindEVStations}>
+          <Zap size={20} color="#059669" />
+          <Text style={styles.actionText}>EV Charge</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => {
+            setShowTrafficReport(true);
+            analyticsService.trackEvent('traffic_report_modal_opened');
+          }}>
+          <AlertTriangle size={20} color="#F59E0B" />
+          <Text style={styles.actionText}>Report</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionButton}
           onPress={() => {
             setShowEmergency(true);
             analyticsService.trackEvent('emergency_modal_opened');
           }}>
           <Phone size={20} color="#DC2626" />
           <Text style={styles.actionText}>Emergency</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => {
-            analyticsService.trackEvent('best_time_clicked');
-            Alert.alert('Best Time', 'Feature coming soon!');
-          }}>
-          <Clock size={20} color="#059669" />
-          <Text style={styles.actionText}>Best Time</Text>
         </TouchableOpacity>
       </View>
 
@@ -375,6 +547,178 @@ export default function MapScreen() {
         </View>
       </Modal>
 
+      {/* EV Charging Stations Modal */}
+      <Modal visible={showEVStations} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>EV Charging Stations</Text>
+            <TouchableOpacity onPress={() => setShowEVStations(false)}>
+              <Text style={styles.closeButton}>Close</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.modalContent}>
+            {evStations.map((station) => (
+              <TouchableOpacity 
+                key={station.id} 
+                style={styles.stationCard}
+                onPress={() => {
+                  analyticsService.trackEvent('ev_station_selected', {
+                    station_name: station.name,
+                    distance: station.distance,
+                    connector_type: station.connectorType,
+                    power_level: station.powerLevel,
+                  });
+                }}>
+                <View style={styles.stationInfo}>
+                  <Zap size={24} color="#059669" />
+                  <View style={styles.stationDetails}>
+                    <Text style={styles.stationName}>{station.name}</Text>
+                    <Text style={styles.stationDistance}>{station.distance.toFixed(1)} km away</Text>
+                    <Text style={styles.stationAddress}>{station.address}</Text>
+                    <View style={styles.evDetails}>
+                      <Text style={styles.evDetailText}>{station.connectorType} • {station.powerLevel}kW</Text>
+                      <Text style={styles.evDetailText}>
+                        {station.available}/{station.total} available
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.evPricing}>
+                  <Text style={styles.stationPrice}>${station.pricePerKwh.toFixed(2)}/kWh</Text>
+                  <Text style={styles.evStatus}>
+                    {station.available > 0 ? 'Available' : 'Full'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Traffic Report Modal */}
+      <Modal visible={showTrafficReport} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Report Traffic Issue</Text>
+            <TouchableOpacity onPress={() => setShowTrafficReport(false)}>
+              <Text style={styles.closeButton}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <Text style={styles.fieldLabel}>What's the issue?</Text>
+            <View style={styles.reportTypeGrid}>
+              {trafficReportTypes.map((type) => (
+                <TouchableOpacity
+                  key={type.id}
+                  style={[
+                    styles.reportTypeCard,
+                    trafficReportType === type.id && styles.reportTypeCardSelected,
+                  ]}
+                  onPress={() => setTrafficReportType(type.id)}>
+                  <Text style={styles.reportTypeIcon}>{type.icon}</Text>
+                  <Text
+                    style={[
+                      styles.reportTypeText,
+                      trafficReportType === type.id && styles.reportTypeTextSelected,
+                    ]}>
+                    {type.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.formField}>
+              <Text style={styles.fieldLabel}>Location</Text>
+              <TextInput
+                style={styles.textInput}
+                value={trafficLocation}
+                onChangeText={setTrafficLocation}
+                placeholder="e.g., I-95 North, Exit 42"
+              />
+            </View>
+
+            <View style={styles.formField}>
+              <Text style={styles.fieldLabel}>Description</Text>
+              <TextInput
+                style={[styles.textInput, styles.textInputMultiline]}
+                value={trafficDescription}
+                onChangeText={setTrafficDescription}
+                placeholder="Provide additional details..."
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={[
+                styles.submitButton,
+                (!trafficReportType || !trafficDescription || !trafficLocation) && 
+                styles.submitButtonDisabled,
+              ]}
+              onPress={handleSubmitTrafficReport}
+              disabled={!trafficReportType || !trafficDescription || !trafficLocation}>
+              <AlertTriangle size={20} color="#FFFFFF" />
+              <Text style={styles.submitButtonText}>Submit Report</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Chat Modal */}
+      <Modal visible={showChat} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Traffic Chat</Text>
+            <TouchableOpacity onPress={() => setShowChat(false)}>
+              <Text style={styles.closeButton}>Close</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.chatContent}>
+            {chatMessages.map((message) => (
+              <View
+                key={message.id}
+                style={[
+                  styles.chatMessage,
+                  message.user === 'You' && styles.chatMessageOwn,
+                ]}>
+                <View style={styles.chatMessageHeader}>
+                  <Text style={styles.chatMessageUser}>{message.user}</Text>
+                  <Text style={styles.chatMessageTime}>{formatTime(message.timestamp)}</Text>
+                </View>
+                <Text style={styles.chatMessageText}>{message.message}</Text>
+                {message.location && (
+                  <Text style={styles.chatMessageLocation}>📍 {message.location}</Text>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+
+          <View style={styles.chatInputContainer}>
+            <TextInput
+              style={styles.chatInput}
+              value={newMessage}
+              onChangeText={setNewMessage}
+              placeholder="Share traffic updates..."
+              multiline
+              maxLength={200}
+            />
+            <TouchableOpacity
+              style={[
+                styles.chatSendButton,
+                !newMessage.trim() && styles.chatSendButtonDisabled,
+              ]}
+              onPress={handleSendMessage}
+              disabled={!newMessage.trim()}>
+              <Text style={styles.chatSendButtonText}>Send</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Emergency Contacts Modal */}
       <Modal visible={showEmergency} animationType="slide" presentationStyle="pageSheet">
         <View style={styles.modalContainer}>
@@ -412,9 +756,42 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     flex: 1,
+    position: 'relative',
   },
   map: {
     flex: 1,
+  },
+  chatButton: {
+    position: 'absolute',
+    top: 60,
+    right: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  chatBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#DC2626',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chatBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   searchContainer: {
     backgroundColor: '#FFFFFF',
@@ -581,6 +958,169 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#059669',
+  },
+  evDetails: {
+    marginTop: 4,
+  },
+  evDetailText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  evPricing: {
+    alignItems: 'flex-end',
+  },
+  evStatus: {
+    fontSize: 12,
+    color: '#059669',
+    marginTop: 2,
+  },
+  fieldLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  reportTypeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 24,
+  },
+  reportTypeCard: {
+    width: '48%',
+    backgroundColor: '#F9FAFB',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+    marginRight: '2%',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  reportTypeCardSelected: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  reportTypeIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  reportTypeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#1F2937',
+    textAlign: 'center',
+  },
+  reportTypeTextSelected: {
+    color: '#FFFFFF',
+  },
+  formField: {
+    marginBottom: 16,
+  },
+  textInput: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  textInputMultiline: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  modalFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  submitButton: {
+    backgroundColor: '#2563EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  chatContent: {
+    flex: 1,
+    padding: 16,
+  },
+  chatMessage: {
+    backgroundColor: '#F3F4F6',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    maxWidth: '80%',
+  },
+  chatMessageOwn: {
+    backgroundColor: '#2563EB',
+    alignSelf: 'flex-end',
+  },
+  chatMessageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  chatMessageUser: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  chatMessageTime: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  chatMessageText: {
+    fontSize: 14,
+    color: '#1F2937',
+    lineHeight: 20,
+  },
+  chatMessageLocation: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  chatInputContainer: {
+    flexDirection: 'row',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    alignItems: 'flex-end',
+  },
+  chatInput: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginRight: 12,
+    maxHeight: 100,
+    fontSize: 16,
+  },
+  chatSendButton: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  chatSendButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+  },
+  chatSendButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   emergencyCard: {
     flexDirection: 'row',

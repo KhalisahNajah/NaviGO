@@ -26,6 +26,22 @@ export interface GasStation {
   };
 }
 
+export interface EVChargingStation {
+  id: string;
+  name: string;
+  address: string;
+  distance: number;
+  connectorType: string;
+  powerLevel: number;
+  pricePerKwh: number;
+  available: number;
+  total: number;
+  location: {
+    lat: number;
+    lng: number;
+  };
+}
+
 class GoogleMapsService {
   private apiKey: string;
 
@@ -148,6 +164,67 @@ class GoogleMapsService {
     }
   }
 
+  async findNearbyEVStations(
+    location: { lat: number; lng: number },
+    radius: number = 10000 // meters - larger radius for EV stations
+  ): Promise<EVChargingStation[]> {
+    if (Platform.OS !== 'web') {
+      return this.getMockEVStations();
+    }
+
+    try {
+      const service = new google.maps.places.PlacesService(
+        document.createElement('div')
+      );
+
+      const request: google.maps.places.PlaceSearchRequest = {
+        location: new google.maps.LatLng(location.lat, location.lng),
+        radius,
+        keyword: 'electric vehicle charging station'
+      };
+
+      return new Promise((resolve, reject) => {
+        service.nearbySearch(request, (results, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+            const evStations: EVChargingStation[] = results.map((place, index) => {
+              const connectorTypes = ['CCS', 'CHAdeMO', 'Tesla Supercharger', 'Type 2'];
+              const powerLevels = [50, 75, 100, 150, 250];
+              
+              return {
+                id: place.place_id || `ev_station_${index}`,
+                name: place.name || 'EV Charging Station',
+                address: place.vicinity || 'Unknown Address',
+                distance: this.calculateDistance(
+                  location,
+                  {
+                    lat: place.geometry?.location?.lat() || 0,
+                    lng: place.geometry?.location?.lng() || 0
+                  }
+                ),
+                connectorType: connectorTypes[Math.floor(Math.random() * connectorTypes.length)],
+                powerLevel: powerLevels[Math.floor(Math.random() * powerLevels.length)],
+                pricePerKwh: 0.25 + Math.random() * 0.15, // Mock price variation
+                available: Math.floor(Math.random() * 4),
+                total: 4,
+                location: {
+                  lat: place.geometry?.location?.lat() || 0,
+                  lng: place.geometry?.location?.lng() || 0
+                }
+              };
+            });
+            
+            resolve(evStations.slice(0, 8)); // Limit to 8 results
+          } else {
+            reject(new Error(`EV stations search failed: ${status}`));
+          }
+        });
+      });
+    } catch (error) {
+      console.error('Error finding EV stations:', error);
+      return this.getMockEVStations();
+    }
+  }
+
   async geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
     if (Platform.OS !== 'web') {
       return null;
@@ -255,6 +332,59 @@ class GoogleMapsService {
         distance: 2.1,
         price: 1.48,
         location: { lat: 37.7649, lng: -122.4294 }
+      }
+    ];
+  }
+
+  private getMockEVStations(): EVChargingStation[] {
+    return [
+      {
+        id: '1',
+        name: 'Tesla Supercharger',
+        address: '100 Electric Ave',
+        distance: 1.5,
+        connectorType: 'Tesla Supercharger',
+        powerLevel: 250,
+        pricePerKwh: 0.28,
+        available: 3,
+        total: 8,
+        location: { lat: 37.7849, lng: -122.4094 }
+      },
+      {
+        id: '2',
+        name: 'ChargePoint Station',
+        address: '200 Green St',
+        distance: 2.3,
+        connectorType: 'CCS',
+        powerLevel: 150,
+        pricePerKwh: 0.32,
+        available: 1,
+        total: 4,
+        location: { lat: 37.7749, lng: -122.4294 }
+      },
+      {
+        id: '3',
+        name: 'EVgo Fast Charging',
+        address: '300 Future Blvd',
+        distance: 3.1,
+        connectorType: 'CHAdeMO',
+        powerLevel: 100,
+        pricePerKwh: 0.35,
+        available: 2,
+        total: 6,
+        location: { lat: 37.7649, lng: -122.4394 }
+      },
+      {
+        id: '4',
+        name: 'Electrify America',
+        address: '400 Power Way',
+        distance: 4.2,
+        connectorType: 'CCS',
+        powerLevel: 350,
+        pricePerKwh: 0.31,
+        available: 0,
+        total: 4,
+        location: { lat: 37.7549, lng: -122.4494 }
       }
     ];
   }
