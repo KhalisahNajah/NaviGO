@@ -10,7 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { Search, Navigation, Cast as Gas, Clock, DollarSign, Route, MapPin, Phone, Zap, MessageCircle, AlertTriangle } from 'lucide-react-native';
+import { Search, Navigation, Cast as Gas, Clock, DollarSign, Route, MapPin, Phone, Zap, MessageCircle, TriangleAlert as AlertTriangle } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import GoogleMap from '@/components/GoogleMap';
 import { googleMapsService, RouteResult, GasStation, EVChargingStation } from '@/services/googleMapsService';
