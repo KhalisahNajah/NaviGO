@@ -8,18 +8,21 @@ config.resolver.sourceExts = ['js', 'jsx', 'ts', 'tsx', 'json'];
 // Enable web support
 config.resolver.platforms = ['ios', 'android', 'native', 'web'];
 
-// Enable package exports for modern Node.js modules
-config.resolver.unstable_enablePackageExports = true;
-
-// Add condition names for proper module resolution
-config.resolver.unstable_conditionNames = [
-  'react-native',
-  'browser',
-  'require',
-  'import'
+// Exclude problematic TypeScript files from node_modules
+config.resolver.blockList = [
+  /node_modules\/.*\/.*\.ts$/,
+  /node_modules\/.*\/.*\.tsx$/,
 ];
 
-// Ensure proper handling of TypeScript files in node_modules
-config.transformer.babelTransformerPath = require.resolve('metro-react-native-babel-transformer');
+// Ensure we only process our own TypeScript files
+config.transformer.getTransformOptions = async () => ({
+  transform: {
+    experimentalImportSupport: false,
+    inlineRequires: true,
+  },
+});
+
+// Add resolver configuration to handle module resolution properly
+config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
 
 module.exports = config;
