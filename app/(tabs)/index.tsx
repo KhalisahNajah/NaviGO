@@ -14,6 +14,7 @@ import { Search, Navigation, Cast as Gas, Clock, DollarSign, Route, MapPin, Phon
 import * as Location from 'expo-location';
 import GoogleMap from '@/components/GoogleMap';
 import { googleMapsService, RouteResult, GasStation } from '@/services/googleMapsService';
+import { analyticsService } from '@/services/analyticsService';
 
 export default function MapScreen() {
   const [searchFrom, setSearchFrom] = useState('');
@@ -39,6 +40,8 @@ export default function MapScreen() {
 
   useEffect(() => {
     getLocationPermission();
+    // Track screen view
+    analyticsService.trackScreenView('Map');
   }, []);
 
   const getLocationPermission = async () => {
@@ -61,6 +64,10 @@ export default function MapScreen() {
             };
             setLocation(mockLocation);
             setSearchFrom('Current Location');
+            
+            analyticsService.trackEvent('location_permission_granted', {
+              method: 'web_geolocation',
+            });
           },
           (error) => {
             console.error('Error getting location:', error);
@@ -79,6 +86,11 @@ export default function MapScreen() {
             };
             setLocation(defaultLocation);
             setSearchFrom('San Francisco, CA');
+            
+            analyticsService.trackEvent('location_permission_denied', {
+              method: 'web_geolocation',
+              error: error.message,
+            });
           }
         );
       }
@@ -88,17 +100,29 @@ export default function MapScreen() {
     let { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission denied', 'Location permission is required for navigation.');
+      analyticsService.trackEvent('location_permission_denied', {
+        method: 'expo_location',
+      });
       return;
     }
 
     let location = await Location.getCurrentPositionAsync({});
     setLocation(location);
     setSearchFrom('Current Location');
+    
+    analyticsService.trackEvent('location_permission_granted', {
+      method: 'expo_location',
+    });
   };
 
   const handleSearch = async () => {
     if (searchFrom && searchTo) {
       try {
+        analyticsService.trackEvent('route_search_started', {
+          origin: searchFrom,
+          destination: searchTo,
+        });
+
         // Calculate routes using Google Maps service
         const calculatedRoutes = await googleMapsService.calculateRoute(
           searchFrom,
@@ -113,9 +137,17 @@ export default function MapScreen() {
           destination: searchTo
         }]);
         setShowRoutes(true);
+        
+        analyticsService.trackRouteCalculation(searchFrom, searchTo, calculatedRoutes.length);
       } catch (error) {
         console.error('Error calculating routes:', error);
         Alert.alert('Error', 'Failed to calculate routes. Please try again.');
+        
+        analyticsService.trackEvent('route_search_failed', {
+          origin: searchFrom,
+          destination: searchTo,
+          error: (error as Error).message,
+        });
       }
     } else {
       Alert.alert('Missing Information', 'Please enter both starting point and destination.');
@@ -125,19 +157,39 @@ export default function MapScreen() {
   const handleFindGasStations = async () => {
     if (location) {
       try {
+        analyticsService.trackEvent('gas_station_search_started', {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+
         const stations = await googleMapsService.findNearbyGasStations({
           lat: location.coords.latitude,
           lng: location.coords.longitude
         });
         setGasStations(stations);
         setShowGasStations(true);
+        
+        analyticsService.trackGasStationSearch(
+          `${location.coords.latitude},${location.coords.longitude}`,
+          stations.length
+        );
       } catch (error) {
         console.error('Error finding gas stations:', error);
         Alert.alert('Error', 'Failed to find gas stations. Please try again.');
+        
+        analyticsService.trackEvent('gas_station_search_failed', {
+          error: (error as Error).message,
+        });
       }
     } else {
       Alert.alert('Location Required', 'Please enable location services to find nearby gas stations.');
     }
+  };
+
+  const handleEmergencyContact = (contact: typeof emergencyContacts[0]) => {
+    analyticsService.trackEmergencyContact(contact.name);
+    // In a real app, this would initiate a phone call
+    Alert.alert('Emergency Contact', `Calling ${contact.name} at ${contact.number}`);
   };
 
   const getTrafficColor = (traffic: string) => {
@@ -171,6 +223,7 @@ export default function MapScreen() {
           routes={mapRoutes}
           onMapReady={(map) => {
             console.log('Google Map is ready');
+            analyticsService.trackEvent('map_loaded');
           }}
         />
       </View>
@@ -211,11 +264,19 @@ export default function MapScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => setShowEmergency(true)}>
+          onPress={() => {
+            setShowEmergency(true);
+            analyticsService.trackEvent('emergency_modal_opened');
+          }}>
           <Phone size={20} color="#DC2626" />
           <Text style={styles.actionText}>Emergency</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => {
+            analyticsService.trackEvent('best_time_clicked');
+            Alert.alert('Best Time', 'Feature coming soon!');
+          }}>
           <Clock size={20} color="#059669" />
           <Text style={styles.actionText}>Best Time</Text>
         </TouchableOpacity>
@@ -232,7 +293,17 @@ export default function MapScreen() {
           </View>
           <ScrollView style={styles.modalContent}>
             {routes.map((route, index) => (
-              <TouchableOpacity key={index} style={styles.routeCard}>
+              <TouchableOpacity 
+                key={index} 
+                style={styles.routeCard}
+                onPress={() => {
+                  analyticsService.trackEvent('route_selected', {
+                    route_index: index,
+                    distance: route.distance,
+                    duration: route.duration,
+                    total_cost: route.totalCost,
+                  });
+                }}>
                 <View style={styles.routeHeader}>
                   <Text style={styles.routeName}>
                     {index === 0 ? 'Fastest Route' : index === 1 ? 'Most Economical' : 'Alternative Route'}
@@ -279,7 +350,16 @@ export default function MapScreen() {
           </View>
           <ScrollView style={styles.modalContent}>
             {gasStations.map((station) => (
-              <TouchableOpacity key={station.id} style={styles.stationCard}>
+              <TouchableOpacity 
+                key={station.id} 
+                style={styles.stationCard}
+                onPress={() => {
+                  analyticsService.trackEvent('gas_station_selected', {
+                    station_name: station.name,
+                    distance: station.distance,
+                    price: station.price,
+                  });
+                }}>
                 <View style={styles.stationInfo}>
                   <Gas size={24} color="#2563EB" />
                   <View style={styles.stationDetails}>
@@ -306,7 +386,10 @@ export default function MapScreen() {
           </View>
           <ScrollView style={styles.modalContent}>
             {emergencyContacts.map((contact, index) => (
-              <TouchableOpacity key={index} style={styles.emergencyCard}>
+              <TouchableOpacity 
+                key={index} 
+                style={styles.emergencyCard}
+                onPress={() => handleEmergencyContact(contact)}>
                 <Text style={styles.emergencyIcon}>{contact.icon}</Text>
                 <View style={styles.emergencyInfo}>
                   <Text style={styles.emergencyName}>{contact.name}</Text>
