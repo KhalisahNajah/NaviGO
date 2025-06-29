@@ -9,7 +9,7 @@ import {
   Modal,
   Alert,
 } from 'react-native';
-import { Car, Plus, CreditCard as Edit, Trash2, Fuel, DollarSign, Star, Save } from 'lucide-react-native';
+import { Car, Plus, CreditCard as Edit, Trash2, Fuel, DollarSign, Star, Save, Globe } from 'lucide-react-native';
 
 interface CarProfile {
   id: string;
@@ -20,6 +20,12 @@ interface CarProfile {
   fuelEfficiency: string; // km/l
   fuelType: string;
   isDefault: boolean;
+}
+
+interface Currency {
+  code: string;
+  symbol: string;
+  name: string;
 }
 
 export default function CarsScreen() {
@@ -47,6 +53,7 @@ export default function CarsScreen() {
   ]);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [editingCar, setEditingCar] = useState<CarProfile | null>(null);
   const [newCar, setNewCar] = useState({
     name: '',
@@ -57,10 +64,31 @@ export default function CarsScreen() {
     fuelType: 'Regular',
   });
 
+  const [selectedCurrency, setSelectedCurrency] = useState<Currency>({
+    code: 'USD',
+    symbol: '$',
+    name: 'US Dollar'
+  });
+
+  const currencies: Currency[] = [
+    { code: 'USD', symbol: '$', name: 'US Dollar' },
+    { code: 'MYR', symbol: 'RM', name: 'Malaysian Ringgit' },
+    { code: 'EUR', symbol: '€', name: 'Euro' },
+    { code: 'GBP', symbol: '£', name: 'British Pound' },
+    { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
+    { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
+    { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
+    { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
+    { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
+    { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
+    { code: 'THB', symbol: '฿', name: 'Thai Baht' },
+    { code: 'IDR', symbol: 'Rp', name: 'Indonesian Rupiah' },
+  ];
+
   const [fuelPrices] = useState({
-    Regular: 1.45,
-    Premium: 1.68,
-    Diesel: 1.52,
+    Regular: selectedCurrency.code === 'MYR' ? 2.05 : selectedCurrency.code === 'EUR' ? 1.65 : 1.45,
+    Premium: selectedCurrency.code === 'MYR' ? 2.35 : selectedCurrency.code === 'EUR' ? 1.85 : 1.68,
+    Diesel: selectedCurrency.code === 'MYR' ? 2.15 : selectedCurrency.code === 'EUR' ? 1.55 : 1.52,
   });
 
   const resetForm = () => {
@@ -159,25 +187,38 @@ export default function CarsScreen() {
     return cost.toFixed(2);
   };
 
+  const handleCurrencySelect = (currency: Currency) => {
+    setSelectedCurrency(currency);
+    setShowCurrencyModal(false);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>My Cars</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowAddModal(true)}>
-          <Plus size={20} color="#FFFFFF" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.currencyButton}
+            onPress={() => setShowCurrencyModal(true)}>
+            <Globe size={20} color="#2563EB" />
+            <Text style={styles.currencyText}>{selectedCurrency.code}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setShowAddModal(true)}>
+            <Plus size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.content}>
         {/* Fuel Price Info */}
         <View style={styles.fuelPriceCard}>
-          <Text style={styles.sectionTitle}>Current Fuel Prices</Text>
+          <Text style={styles.sectionTitle}>Current Fuel Prices ({selectedCurrency.name})</Text>
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Regular: ${fuelPrices.Regular}/L</Text>
-            <Text style={styles.priceLabel}>Premium: ${fuelPrices.Premium}/L</Text>
-            <Text style={styles.priceLabel}>Diesel: ${fuelPrices.Diesel}/L</Text>
+            <Text style={styles.priceLabel}>Regular: {selectedCurrency.symbol}{fuelPrices.Regular}/L</Text>
+            <Text style={styles.priceLabel}>Premium: {selectedCurrency.symbol}{fuelPrices.Premium}/L</Text>
+            <Text style={styles.priceLabel}>Diesel: {selectedCurrency.symbol}{fuelPrices.Diesel}/L</Text>
           </View>
         </View>
 
@@ -232,13 +273,13 @@ export default function CarsScreen() {
               <View style={styles.calculationRow}>
                 <Text style={styles.calculationLabel}>50 km trip:</Text>
                 <Text style={styles.calculationValue}>
-                  ${calculateTripCost(50, parseFloat(car.fuelEfficiency), car.fuelType)}
+                  {selectedCurrency.symbol}{calculateTripCost(50, parseFloat(car.fuelEfficiency), car.fuelType)}
                 </Text>
               </View>
               <View style={styles.calculationRow}>
                 <Text style={styles.calculationLabel}>100 km trip:</Text>
                 <Text style={styles.calculationValue}>
-                  ${calculateTripCost(100, parseFloat(car.fuelEfficiency), car.fuelType)}
+                  {selectedCurrency.symbol}{calculateTripCost(100, parseFloat(car.fuelEfficiency), car.fuelType)}
                 </Text>
               </View>
             </View>
@@ -263,6 +304,35 @@ export default function CarsScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Currency Selection Modal */}
+      <Modal visible={showCurrencyModal} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Currency</Text>
+            <TouchableOpacity onPress={() => setShowCurrencyModal(false)}>
+              <Text style={styles.closeButton}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.modalContent}>
+            {currencies.map((currency) => (
+              <TouchableOpacity
+                key={currency.code}
+                style={[
+                  styles.currencyOption,
+                  selectedCurrency.code === currency.code && styles.currencyOptionSelected
+                ]}
+                onPress={() => handleCurrencySelect(currency)}>
+                <View style={styles.currencyInfo}>
+                  <Text style={styles.currencyCode}>{currency.code}</Text>
+                  <Text style={styles.currencyName}>{currency.name}</Text>
+                </View>
+                <Text style={styles.currencySymbol}>{currency.symbol}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
 
       {/* Add/Edit Car Modal */}
       <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
@@ -393,6 +463,25 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#1F2937',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  currencyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  currencyText: {
+    color: '#2563EB',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   addButton: {
     backgroundColor: '#2563EB',
@@ -586,6 +675,35 @@ const styles = StyleSheet.create({
   modalContent: {
     flex: 1,
     padding: 16,
+  },
+  currencyOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  currencyOptionSelected: {
+    backgroundColor: '#EEF2FF',
+  },
+  currencyInfo: {
+    flex: 1,
+  },
+  currencyCode: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  currencyName: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  currencySymbol: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2563EB',
   },
   formField: {
     marginBottom: 16,

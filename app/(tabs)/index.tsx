@@ -12,17 +12,8 @@ import {
 } from 'react-native';
 import { Search, Navigation, Cast as Gas, Clock, DollarSign, Route, MapPin, Phone } from 'lucide-react-native';
 import * as Location from 'expo-location';
-
-interface RouteOption {
-  id: string;
-  name: string;
-  distance: string;
-  duration: string;
-  fuelCost: string;
-  tollCost: string;
-  totalCost: string;
-  traffic: 'light' | 'moderate' | 'heavy';
-}
+import GoogleMap from '@/components/GoogleMap';
+import { googleMapsService, RouteResult, GasStation } from '@/services/googleMapsService';
 
 export default function MapScreen() {
   const [searchFrom, setSearchFrom] = useState('');
@@ -31,45 +22,13 @@ export default function MapScreen() {
   const [showGasStations, setShowGasStations] = useState(false);
   const [showEmergency, setShowEmergency] = useState(false);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
-
-  const routeOptions: RouteOption[] = [
-    {
-      id: '1',
-      name: 'Fastest Route',
-      distance: '45.2 km',
-      duration: '38 min',
-      fuelCost: '$4.80',
-      tollCost: '$2.50',
-      totalCost: '$7.30',
-      traffic: 'light',
-    },
-    {
-      id: '2',
-      name: 'Most Economical',
-      distance: '52.1 km',
-      duration: '51 min',
-      fuelCost: '$3.20',
-      tollCost: '$0.00',
-      totalCost: '$3.20',
-      traffic: 'moderate',
-    },
-    {
-      id: '3',
-      name: 'Avoid Tolls',
-      distance: '48.7 km',
-      duration: '46 min',
-      fuelCost: '$4.10',
-      tollCost: '$0.00',
-      totalCost: '$4.10',
-      traffic: 'moderate',
-    },
-  ];
-
-  const gasStations = [
-    { name: 'Shell Station', distance: '0.8 km', price: '$1.45/L' },
-    { name: 'BP Station', distance: '1.2 km', price: '$1.42/L' },
-    { name: 'Chevron', distance: '2.1 km', price: '$1.48/L' },
-  ];
+  const [routes, setRoutes] = useState<RouteResult[]>([]);
+  const [gasStations, setGasStations] = useState<GasStation[]>([]);
+  const [mapRoutes, setMapRoutes] = useState<Array<{
+    origin: string;
+    destination: string;
+    waypoints?: string[];
+  }>>([]);
 
   const emergencyContacts = [
     { name: 'Emergency Services', number: '911', icon: '🚨' },
@@ -85,6 +44,44 @@ export default function MapScreen() {
   const getLocationPermission = async () => {
     if (Platform.OS === 'web') {
       // Handle web location differently
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const mockLocation = {
+              coords: {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                altitude: null,
+                accuracy: position.coords.accuracy,
+                altitudeAccuracy: null,
+                heading: null,
+                speed: null,
+              },
+              timestamp: Date.now(),
+            };
+            setLocation(mockLocation);
+            setSearchFrom('Current Location');
+          },
+          (error) => {
+            console.error('Error getting location:', error);
+            // Set default location (San Francisco)
+            const defaultLocation = {
+              coords: {
+                latitude: 37.7749,
+                longitude: -122.4194,
+                altitude: null,
+                accuracy: 100,
+                altitudeAccuracy: null,
+                heading: null,
+                speed: null,
+              },
+              timestamp: Date.now(),
+            };
+            setLocation(defaultLocation);
+            setSearchFrom('San Francisco, CA');
+          }
+        );
+      }
       return;
     }
 
@@ -96,13 +93,50 @@ export default function MapScreen() {
 
     let location = await Location.getCurrentPositionAsync({});
     setLocation(location);
+    setSearchFrom('Current Location');
   };
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (searchFrom && searchTo) {
-      setShowRoutes(true);
+      try {
+        // Calculate routes using Google Maps service
+        const calculatedRoutes = await googleMapsService.calculateRoute(
+          searchFrom,
+          searchTo,
+          12.5, // Default fuel efficiency - should come from user's selected car
+          1.45  // Default fuel price - should come from user's settings
+        );
+        
+        setRoutes(calculatedRoutes);
+        setMapRoutes([{
+          origin: searchFrom,
+          destination: searchTo
+        }]);
+        setShowRoutes(true);
+      } catch (error) {
+        console.error('Error calculating routes:', error);
+        Alert.alert('Error', 'Failed to calculate routes. Please try again.');
+      }
     } else {
       Alert.alert('Missing Information', 'Please enter both starting point and destination.');
+    }
+  };
+
+  const handleFindGasStations = async () => {
+    if (location) {
+      try {
+        const stations = await googleMapsService.findNearbyGasStations({
+          lat: location.coords.latitude,
+          lng: location.coords.longitude
+        });
+        setGasStations(stations);
+        setShowGasStations(true);
+      } catch (error) {
+        console.error('Error finding gas stations:', error);
+        Alert.alert('Error', 'Failed to find gas stations. Please try again.');
+      }
+    } else {
+      Alert.alert('Location Required', 'Please enable location services to find nearby gas stations.');
     }
   };
 
@@ -115,15 +149,30 @@ export default function MapScreen() {
     }
   };
 
+  const formatCurrency = (amount: number) => {
+    return `$${amount.toFixed(2)}`;
+  };
+
   return (
     <View style={styles.container}>
-      {/* Map Placeholder */}
+      {/* Google Map */}
       <View style={styles.mapContainer}>
-        <View style={styles.mapPlaceholder}>
-          <MapPin size={48} color="#2563EB" />
-          <Text style={styles.mapText}>Interactive Map View</Text>
-          <Text style={styles.mapSubtext}>Location services and route display</Text>
-        </View>
+        <GoogleMap
+          style={styles.map}
+          initialLocation={
+            location
+              ? {
+                  lat: location.coords.latitude,
+                  lng: location.coords.longitude,
+                }
+              : { lat: 37.7749, lng: -122.4194 }
+          }
+          showTraffic={true}
+          routes={mapRoutes}
+          onMapReady={(map) => {
+            console.log('Google Map is ready');
+          }}
+        />
       </View>
 
       {/* Search Controls */}
@@ -156,7 +205,7 @@ export default function MapScreen() {
       <View style={styles.quickActions}>
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => setShowGasStations(true)}>
+          onPress={handleFindGasStations}>
           <Gas size={20} color="#2563EB" />
           <Text style={styles.actionText}>Gas</Text>
         </TouchableOpacity>
@@ -182,14 +231,16 @@ export default function MapScreen() {
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalContent}>
-            {routeOptions.map((route) => (
-              <TouchableOpacity key={route.id} style={styles.routeCard}>
+            {routes.map((route, index) => (
+              <TouchableOpacity key={index} style={styles.routeCard}>
                 <View style={styles.routeHeader}>
-                  <Text style={styles.routeName}>{route.name}</Text>
+                  <Text style={styles.routeName}>
+                    {index === 0 ? 'Fastest Route' : index === 1 ? 'Most Economical' : 'Alternative Route'}
+                  </Text>
                   <View
                     style={[
                       styles.trafficIndicator,
-                      { backgroundColor: getTrafficColor(route.traffic) },
+                      { backgroundColor: index === 0 ? '#059669' : index === 1 ? '#EA580C' : '#6B7280' },
                     ]}
                   />
                 </View>
@@ -204,12 +255,12 @@ export default function MapScreen() {
                   </View>
                   <View style={styles.routeDetail}>
                     <DollarSign size={16} color="#6B7280" />
-                    <Text style={styles.routeDetailText}>{route.totalCost}</Text>
+                    <Text style={styles.routeDetailText}>{formatCurrency(route.totalCost)}</Text>
                   </View>
                 </View>
                 <View style={styles.costBreakdown}>
-                  <Text style={styles.costText}>Fuel: {route.fuelCost}</Text>
-                  <Text style={styles.costText}>Toll: {route.tollCost}</Text>
+                  <Text style={styles.costText}>Fuel: {formatCurrency(route.fuelCost)}</Text>
+                  <Text style={styles.costText}>Toll: {formatCurrency(route.tollCost)}</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -227,16 +278,17 @@ export default function MapScreen() {
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalContent}>
-            {gasStations.map((station, index) => (
-              <TouchableOpacity key={index} style={styles.stationCard}>
+            {gasStations.map((station) => (
+              <TouchableOpacity key={station.id} style={styles.stationCard}>
                 <View style={styles.stationInfo}>
                   <Gas size={24} color="#2563EB" />
                   <View style={styles.stationDetails}>
                     <Text style={styles.stationName}>{station.name}</Text>
-                    <Text style={styles.stationDistance}>{station.distance} away</Text>
+                    <Text style={styles.stationDistance}>{station.distance.toFixed(1)} km away</Text>
+                    <Text style={styles.stationAddress}>{station.address}</Text>
                   </View>
                 </View>
-                <Text style={styles.stationPrice}>{station.price}</Text>
+                <Text style={styles.stationPrice}>${station.price.toFixed(2)}/L</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -277,24 +329,9 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     flex: 1,
-    backgroundColor: '#E5E7EB',
   },
-  mapPlaceholder: {
+  map: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-  },
-  mapText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginTop: 16,
-  },
-  mapSubtext: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 4,
   },
   searchContainer: {
     backgroundColor: '#FFFFFF',
@@ -438,9 +475,11 @@ const styles = StyleSheet.create({
   stationInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   stationDetails: {
     marginLeft: 12,
+    flex: 1,
   },
   stationName: {
     fontSize: 16,
@@ -450,6 +489,10 @@ const styles = StyleSheet.create({
   stationDistance: {
     fontSize: 14,
     color: '#6B7280',
+  },
+  stationAddress: {
+    fontSize: 12,
+    color: '#9CA3AF',
   },
   stationPrice: {
     fontSize: 16,
