@@ -8,6 +8,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  Image,
 } from 'react-native';
 import { TriangleAlert as AlertTriangle, Car, Construction, TreePine, Clock, MapPin, Send, Shield as Police, CloudRain } from 'lucide-react-native';
 
@@ -111,7 +112,6 @@ export default function ReportsScreen() {
 
   const loadReports = async () => {
     try {
-      // Mock data
       const mockReports: CommunityReport[] = [
         {
           id: '1',

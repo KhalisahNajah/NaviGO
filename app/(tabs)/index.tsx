@@ -9,10 +9,10 @@ import {
   ScrollView,
   Alert,
   Platform,
+  Image,
 } from 'react-native';
 import { Search, Navigation, Fuel, Clock, DollarSign, Route, MapPin, Phone, Zap, MessageCircle, TriangleAlert as AlertTriangle } from 'lucide-react-native';
 import * as Location from 'expo-location';
-import GoogleMap from '@/components/GoogleMap';
 
 interface RouteResult {
   distance: string;
@@ -55,11 +55,6 @@ export default function MapScreen() {
   const [routes, setRoutes] = useState<RouteResult[]>([]);
   const [gasStations, setGasStations] = useState<GasStation[]>([]);
   const [evStations, setEVStations] = useState<EVChargingStation[]>([]);
-  const [mapRoutes, setMapRoutes] = useState<Array<{
-    origin: string;
-    destination: string;
-    waypoints?: string[];
-  }>>([]);
 
   // Traffic report state
   const [trafficReportType, setTrafficReportType] = useState('');
@@ -153,7 +148,6 @@ export default function MapScreen() {
   const handleSearch = async () => {
     if (searchFrom && searchTo) {
       try {
-        // Mock route calculation
         const mockRoutes: RouteResult[] = [
           {
             distance: '45.2 km',
@@ -179,10 +173,6 @@ export default function MapScreen() {
         ];
         
         setRoutes(mockRoutes);
-        setMapRoutes([{
-          origin: searchFrom,
-          destination: searchTo
-        }]);
         setShowRoutes(true);
       } catch (error) {
         console.error('Error calculating routes:', error);
@@ -354,23 +344,12 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Google Map */}
+      {/* Map Area */}
       <View style={styles.mapContainer}>
-        <GoogleMap
+        <Image
+          source={{ uri: 'https://images.pexels.com/photos/2422915/pexels-photo-2422915.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2' }}
           style={styles.map}
-          initialLocation={
-            location
-              ? {
-                  lat: location.coords.latitude,
-                  lng: location.coords.longitude,
-                }
-              : { lat: 37.7749, lng: -122.4194 }
-          }
-          showTraffic={true}
-          routes={mapRoutes}
-          onMapReady={(map) => {
-            console.log('Google Map is ready');
-          }}
+          resizeMode="cover"
         />
         
         {/* Floating Chat Button */}

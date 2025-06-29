@@ -7,6 +7,7 @@ import {
   ScrollView,
   TextInput,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { MessageCircle, Send, MapPin, Clock, Users, TriangleAlert as AlertTriangle } from 'lucide-react-native';
 

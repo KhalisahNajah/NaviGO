@@ -7,6 +7,7 @@ import {
   ScrollView,
   Switch,
   Alert,
+  Image,
 } from 'react-native';
 import { User, Settings, MapPin, Bell, Shield, CircleHelp as HelpCircle, Star, Phone, Navigation, Fuel, ChevronRight, LogOut } from 'lucide-react-native';
 
@@ -428,10 +429,11 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
+    
     fontWeight: '600',
     color: '#1F2937',
     padding: 16,
-    paddingBottom:  8,
+    paddingBottom: 8,
   },
   menuItem: {
     flexDirection: 'row',

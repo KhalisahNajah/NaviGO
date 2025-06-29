@@ -8,8 +8,9 @@ import {
   TextInput,
   Modal,
   Alert,
+  Image,
 } from 'react-native';
-import { Car, Plus, CreditCard as Edit, Trash2, Fuel, DollarSign, Star, Save, Globe } from 'lucide-react-native';
+import { Car, Plus, Edit, Trash2, Fuel, DollarSign, Star, Save, Globe } from 'lucide-react-native';
 
 interface Currency {
   code: string;
