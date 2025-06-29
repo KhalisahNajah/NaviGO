@@ -4,13 +4,12 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "EXPO_NO_TELEMETRY=1 npx expo start",
+    "dev": "EXPO_NO_TELEMETRY=1 npx expo start --clear",
     "build:web": "npx expo export --platform web",
     "lint": "npx expo lint"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
-    "@googlemaps/js-api-loader": "^1.16.8",
     "expo": "~52.0.30",
     "expo-constants": "~16.0.2",
     "expo-font": "~12.0.10",
@@ -33,8 +32,6 @@
     "react-native-web": "~0.19.13"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.2",
-    "@types/react": "~18.3.12",
-    "typescript": "~5.8.3"
+    "@babel/core": "^7.25.2"
   }
 }

@@ -2,27 +2,28 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
-// Ensure TypeScript files are properly resolved
-config.resolver.sourceExts = ['js', 'jsx', 'ts', 'tsx', 'json'];
+// Force JavaScript resolution and avoid TypeScript files in node_modules
+config.resolver.sourceExts = ['js', 'jsx', 'json'];
+config.resolver.assetExts = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'ttf', 'otf', 'woff', 'woff2'];
 
-// Enable web support
-config.resolver.platforms = ['ios', 'android', 'native', 'web'];
-
-// Exclude problematic TypeScript files from node_modules
+// Completely block TypeScript files from node_modules
 config.resolver.blockList = [
-  /node_modules\/.*\/.*\.ts$/,
-  /node_modules\/.*\/.*\.tsx$/,
+  /node_modules\/.*\.ts$/,
+  /node_modules\/.*\.tsx$/,
 ];
 
-// Ensure we only process our own TypeScript files
+// Force module resolution to use compiled JavaScript versions
+config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
+
+// Disable TypeScript transformer for node_modules
 config.transformer.getTransformOptions = async () => ({
   transform: {
     experimentalImportSupport: false,
-    inlineRequires: true,
+    inlineRequires: false,
   },
 });
 
-// Add resolver configuration to handle module resolution properly
-config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
+// Add platforms
+config.resolver.platforms = ['ios', 'android', 'native', 'web'];
 
 module.exports = config;
