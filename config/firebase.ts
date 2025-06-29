@@ -37,3 +37,5 @@ if (Platform.OS === 'web') {
 }
 
 export default app;
+
+export { analytics }
