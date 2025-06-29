@@ -5,4 +5,7 @@ const config = getDefaultConfig(__dirname);
 // Add TypeScript support
 config.resolver.sourceExts.push('ts', 'tsx');
 
+// Enable web support
+config.resolver.platforms = ['ios', 'android', 'native', 'web'];
+
 module.exports = config;
